@@ -13,7 +13,7 @@ import type {
   PluginContext,
   PluginHooks,
   PermissionStatus
-} from '../../shared/types/plugin'
+} from '@shared/types/plugin'
 import { PluginRegistry } from './registry'
 import { ServiceManager } from '../services'
 import { Permission, PermissionManager } from '../permissions'

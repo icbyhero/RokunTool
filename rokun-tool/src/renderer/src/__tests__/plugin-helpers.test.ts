@@ -13,7 +13,7 @@ import {
   getPluginDependencies,
   hasDependencies
 } from '../utils/plugin-helpers'
-import type { PluginMetadata, PluginPermission } from '../../../shared/types/plugin'
+import type { PluginMetadata, PluginPermission } from '@shared/types/plugin'
 
 describe('plugin-helpers', () => {
   describe('formatPermission', () => {

@@ -20,7 +20,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
 
   describe('插件导出结构', () => {
     it('应该导出所有必需的钩子函数', () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       expect(pluginModule).toHaveProperty('onLoad')
       expect(pluginModule).toHaveProperty('onEnable')
@@ -36,7 +36,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('所有导出的函数应该是函数类型', () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       Object.keys(pluginModule).forEach((key) => {
         expect(typeof pluginModule[key]).toBe('function')
@@ -46,7 +46,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
 
   describe('插件生命周期', () => {
     it('应该能够加载插件', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       await expect(pluginModule.onLoad(mockContext)).resolves.not.toThrow()
 
@@ -55,7 +55,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够启用插件', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       await expect(pluginModule.onEnable(mockContext)).resolves.not.toThrow()
 
@@ -63,7 +63,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够禁用插件', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       await expect(pluginModule.onDisable(mockContext)).resolves.not.toThrow()
 
@@ -71,7 +71,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够卸载插件', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       await expect(pluginModule.onUnload(mockContext)).resolves.not.toThrow()
 
@@ -81,7 +81,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
 
   describe('微信应用检测', () => {
     it('应该能够检测微信是否已安装', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       const result = await pluginModule.checkWeChatInstalled(mockContext)
 
@@ -89,7 +89,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够获取微信版本', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       const result = await pluginModule.getWeChatVersion(mockContext)
 
@@ -103,7 +103,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
 
   describe('实例管理', () => {
     it('应该能够获取实例列表', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       // 先加载插件以初始化配置
       await pluginModule.onLoad(mockContext)
@@ -116,7 +116,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
 
   describe('错误处理', () => {
     it('应该能够处理无效的实例 ID', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       // 尝试启动不存在的实例
       await expect(
@@ -125,7 +125,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理停止不存在的实例', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       // 尝试停止不存在的实例
       await expect(
@@ -134,7 +134,7 @@ describe('WeChatMultiInstance Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理删除不存在的实例', async () => {
-      const pluginModule = require('../../../../plugins/wechat-multi-instance/index.js')
+      const pluginModule = require('../../../../../plugins/wechat-multi-instance/index.js')
 
       // 尝试删除不存在的实例
       await expect(

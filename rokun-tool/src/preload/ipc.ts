@@ -28,7 +28,7 @@ import type {
   NotificationShowRequest,
   NotificationShowResponse,
   NotificationCloseRequest
-} from '../shared/types/ipc'
+} from '@shared/types/ipc'
 
 /**
  * 权限请求上下文

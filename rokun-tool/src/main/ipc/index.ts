@@ -5,4 +5,4 @@
  */
 
 export { IpcHandlers } from './handlers'
-export * from '../../shared/types/ipc'
+export * from '@shared/types/ipc'

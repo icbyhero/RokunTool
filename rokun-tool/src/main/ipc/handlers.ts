@@ -26,7 +26,7 @@ import type {
   NotificationShowRequest,
   NotificationShowResponse,
   NotificationCloseRequest
-} from '../../shared/types/ipc'
+} from '@shared/types/ipc'
 import { PluginRegistry } from '../plugins/registry'
 import { ServiceManager } from '../services'
 import { PermissionManager } from '../permissions'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
-import type { PluginRoute } from '../../../../shared/types/plugin'
+import type { PluginRoute } from '@shared/types/plugin'
 
 interface PluginRouterProps {
   pluginId: string

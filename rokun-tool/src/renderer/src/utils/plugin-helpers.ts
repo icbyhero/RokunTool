@@ -1,4 +1,4 @@
-import type { PluginMetadata, PluginPermission } from '../../../shared/types/plugin'
+import type { PluginMetadata, PluginPermission } from '@shared/types/plugin'
 
 export function formatPermission(permission: PluginPermission): string {
   const permissionMap: Record<PluginPermission, string> = {

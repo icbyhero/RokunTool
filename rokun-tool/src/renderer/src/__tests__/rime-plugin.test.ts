@@ -20,7 +20,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('插件导出结构', () => {
     it('应该导出所有必需的钩子函数', () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       expect(pluginModule).toHaveProperty('onLoad')
       expect(pluginModule).toHaveProperty('onEnable')
@@ -39,7 +39,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该导出配置编辑器增强功能', () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       expect(pluginModule).toHaveProperty('validateConfigFile')
       expect(pluginModule).toHaveProperty('formatConfigFile')
@@ -47,7 +47,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该导出备份和恢复功能', () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       expect(pluginModule).toHaveProperty('getBackupFiles')
       expect(pluginModule).toHaveProperty('restoreFromBackup')
@@ -57,7 +57,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该导出字典文件管理功能', () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       expect(pluginModule).toHaveProperty('getDictionaryFiles')
       expect(pluginModule).toHaveProperty('downloadDictionary')
@@ -66,7 +66,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('所有导出的函数应该是函数类型', () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       Object.keys(pluginModule).forEach((key) => {
         expect(typeof pluginModule[key]).toBe('function')
@@ -76,7 +76,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('插件生命周期', () => {
     it('应该能够加载插件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(pluginModule.onLoad(mockContext)).resolves.not.toThrow()
 
@@ -85,7 +85,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够启用插件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(pluginModule.onEnable(mockContext)).resolves.not.toThrow()
 
@@ -93,7 +93,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够禁用插件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(pluginModule.onDisable(mockContext)).resolves.not.toThrow()
 
@@ -101,7 +101,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够卸载插件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(pluginModule.onUnload(mockContext)).resolves.not.toThrow()
 
@@ -111,7 +111,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('配置编辑器增强功能', () => {
     it('应该能够验证配置文件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       const validYaml = 'key: value\nname: test'
       const result = await pluginModule.validateConfigFile(mockContext, validYaml)
@@ -124,7 +124,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够检测无效的 YAML 语法', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       const invalidYaml = 'key'
       const result = await pluginModule.validateConfigFile(mockContext, invalidYaml)
@@ -134,7 +134,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够格式化配置文件', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       const unformattedYaml = 'key: value\nname: test'
       const formatted = await pluginModule.formatConfigFile(mockContext, unformattedYaml)
@@ -144,7 +144,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够对比配置文件差异', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       const oldContent = 'key: value1'
       const newContent = 'key: value2'
@@ -162,7 +162,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('备份和恢复功能', () => {
     it('应该能够处理备份目录不可用的情况', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       const emptyContext = {
         logger: {
@@ -179,7 +179,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理无效的备份文件名', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.restoreFromBackup(mockContext, 'invalid-backup.txt')
@@ -187,7 +187,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够删除备份', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.deleteBackup(mockContext, 'non-existent-backup.txt')
@@ -197,7 +197,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('字典文件管理功能', () => {
     it('应该能够获取字典文件列表', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.getDictionaryFiles(mockContext)
@@ -205,7 +205,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够获取字典统计信息', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.getDictionaryStats(mockContext)
@@ -213,7 +213,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理 Rime 未安装的情况', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.getDictionaryFiles(mockContext)
@@ -223,7 +223,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
 
   describe('错误处理', () => {
     it('应该能够处理无效的配方 ID', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.installRecipe(mockContext, 'non-existent-recipe')
@@ -231,7 +231,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理未安装的配方', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.uninstallRecipe(mockContext, 'non-existent-recipe')
@@ -239,7 +239,7 @@ describe('Rime Config Plugin - 冒烟测试', () => {
     })
 
     it('应该能够处理无效的配置文件名', async () => {
-      const pluginModule = require('../../../../plugins/rime-config/index.js')
+      const pluginModule = require('../../../../../plugins/rime-config/index.js')
 
       await expect(
         pluginModule.getConfigFile(mockContext, 'non-existent.yaml')

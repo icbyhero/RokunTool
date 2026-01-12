@@ -4,7 +4,7 @@
  * 管理所有已加载的插件实例
  */
 
-import type { PluginInstance, PluginRegistry as IPluginRegistry } from '../../shared/types/plugin'
+import type { PluginInstance, PluginRegistry as IPluginRegistry } from '@shared/types/plugin'
 
 export class PluginRegistry implements IPluginRegistry {
   plugins: Map<string, PluginInstance> = new Map()

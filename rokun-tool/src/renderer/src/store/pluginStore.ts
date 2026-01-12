@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand'
-import type { PluginMetadata } from '../../../shared/types/plugin'
+import type { PluginMetadata } from '@shared/types/plugin'
 
 interface LoadingState {
   status: 'loading' | 'loaded' | 'error'
