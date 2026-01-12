@@ -1,0 +1,53 @@
+# 依赖
+node_modules/
+**/node_modules/
+
+# 构建产物
+dist/
+out/
+release/
+build/
+*.app
+
+# 日志
+*.log
+logs/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 测试
+coverage/
+.nyc_output/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 缓存
+.eslintcache
+.prettiercache
+.tsbuildinfo
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# OneDrive 同步 (因为项目在 OneDrive 目录)
+.trae/
+
+# 备份文件
+*.bak
+*.backup
+*~

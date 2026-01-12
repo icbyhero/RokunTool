@@ -1,0 +1,33 @@
+{
+  "id": "rokun-wechat-multi-instance",
+  "name": "微信分身",
+  "version": "1.0.0",
+  "description": "支持创建和管理多个微信实例，每个实例独立运行",
+  "author": "Rokun",
+  "license": "MIT",
+  "homepage": "https://github.com/rokun/RokunTool",
+  "main": "index.js",
+  "icon": "icon.png",
+  "minHostVersion": "1.0.0",
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "process:spawn",
+    "process:exec",
+    "process:kill",
+    "shell:execute",
+    "notification:show"
+  ],
+  "type": "tool",
+  "tags": [
+    "微信",
+    "分身",
+    "多开"
+  ],
+  "routes": [
+    {
+      "path": "/wechat-multi-instance",
+      "title": "微信分身"
+    }
+  ]
+}

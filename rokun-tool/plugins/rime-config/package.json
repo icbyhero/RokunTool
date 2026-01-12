@@ -1,0 +1,33 @@
+{
+  "id": "rokun-rime-config",
+  "name": "Rime 配置管理",
+  "version": "1.0.0",
+  "description": "可视化管理 Rime 输入法配置、方案和词库",
+  "author": "Rokun",
+  "license": "MIT",
+  "homepage": "https://github.com/rokun/RokunTool",
+  "main": "index.js",
+  "icon": "icon.png",
+  "minHostVersion": "1.0.0",
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "process:spawn",
+    "process:exec",
+    "shell:execute",
+    "network:http",
+    "notification:show"
+  ],
+  "type": "tool",
+  "tags": [
+    "Rime",
+    "输入法",
+    "配置管理"
+  ],
+  "routes": [
+    {
+      "path": "/rime-config",
+      "title": "Rime 配置"
+    }
+  ]
+}

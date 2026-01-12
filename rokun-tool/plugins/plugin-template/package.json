@@ -1,0 +1,35 @@
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "我的插件描述",
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://github.com/yourname/yourplugin",
+  "main": "index.js",
+  "rokun": {
+    "id": "publisher-my-plugin",
+    "name": "我的插件",
+    "version": "1.0.0",
+    "description": "插件的功能描述",
+    "author": "Your Name",
+    "license": "MIT",
+    "icon": "icon.png",
+    "minHostVersion": "1.0.0",
+    "permissions": [
+      "fs:read",
+      "fs:write",
+      "notification:show"
+    ],
+    "type": "tool",
+    "tags": [
+      "工具",
+      "示例"
+    ],
+    "routes": [
+      {
+        "path": "/my-plugin",
+        "title": "我的插件"
+      }
+    ]
+  }
+}

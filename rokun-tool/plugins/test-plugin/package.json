@@ -1,0 +1,20 @@
+{
+  "id": "test-plugin",
+  "name": "测试插件",
+  "version": "1.0.0",
+  "description": "一个用于测试插件系统的简单插件",
+  "author": "Rokun",
+  "license": "MIT",
+  "main": "index.js",
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "process:spawn",
+    "process:exec",
+    "config:read",
+    "config:write",
+    "notification:show"
+  ],
+  "type": "tool",
+  "tags": ["test", "demo"]
+}
