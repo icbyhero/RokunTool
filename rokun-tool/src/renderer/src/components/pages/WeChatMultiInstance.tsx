@@ -9,6 +9,7 @@ interface Instance {
   path: string
   bundleId: string
   createdAt: string
+  wechatVersion: string // 分身基于的微信版本
   rebuiltAt?: string
 }
 
@@ -124,7 +125,9 @@ export function WeChatMultiInstance() {
     if (!instance) return
 
     const confirmed = window.confirm(
-      `确定要重建实例 "${instance.name}" 吗？\n\n` +
+      `确定要更新实例 "${instance.name}" 到最新微信版本吗？\n\n` +
+      `当前分身版本: ${instance.wechatVersion || '未知'}\n` +
+      `最新微信版本: ${weChatVersion || '未知'}\n\n` +
       '这将删除当前分身并使用最新的微信版本重新创建。'
     )
     if (!confirmed) return
@@ -141,10 +144,67 @@ export function WeChatMultiInstance() {
           prev.map((i) => (i.id === instanceId ? result.data! : i))
         )
       } else {
-        setError(result.error || '重建实例失败')
+        setError(result.error || '更新实例失败')
       }
     } catch (error) {
-      setError('重建实例失败')
+      setError('更新实例失败')
+    }
+  }
+
+  const rebuildAllInstances = async () => {
+    const outdatedInstances = instances.filter(
+      (i) => weChatVersion && i.wechatVersion !== weChatVersion
+    )
+
+    if (outdatedInstances.length === 0) {
+      alert('所有分身都是最新版本,无需更新')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `确定要更新所有 ${outdatedInstances.length} 个过期的分身吗？\n\n` +
+      `当前微信版本: ${weChatVersion}\n\n` +
+      '这将删除旧的分身并使用最新的微信版本重新创建。\n\n' +
+      '更新过程可能需要几分钟时间。'
+    )
+    if (!confirmed) return
+
+    try {
+      setError(null)
+      let successCount = 0
+      let failCount = 0
+
+      for (const instance of outdatedInstances) {
+        try {
+          const result = await window.electronAPI.plugin.callMethod<Instance>({
+            pluginId: 'rokun-wechat-multi-instance',
+            method: 'rebuildInstance',
+            args: [instance.id]
+          })
+
+          if (result.success && result.data) {
+            setInstances((prev) =>
+              prev.map((i) => (i.id === instance.id ? result.data! : i))
+            )
+            successCount++
+          } else {
+            failCount++
+            console.error(`更新 ${instance.name} 失败:`, result.error)
+          }
+        } catch (error) {
+          failCount++
+          console.error(`更新 ${instance.name} 失败:`, error)
+        }
+      }
+
+      if (failCount > 0) {
+        setError(`批量更新完成: 成功 ${successCount} 个,失败 ${failCount} 个`)
+      } else {
+        // 重新加载以获取最新状态
+        await loadInstances()
+      }
+    } catch (error) {
+      setError('批量更新失败')
     }
   }
 
@@ -178,6 +238,15 @@ export function WeChatMultiInstance() {
           )}
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={rebuildAllInstances}
+            disabled={!weChatVersion || instances.length === 0}
+            title="更新所有过期的分身到最新微信版本"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            全部更新
+          </Button>
           <Button variant="outline" onClick={refreshStatus} disabled={refreshing}>
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             刷新
@@ -211,57 +280,92 @@ export function WeChatMultiInstance() {
             </CardContent>
           </Card>
         ) : (
-          instances.map((instance) => (
-            <Card key={instance.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>{instance.name}</CardTitle>
-                    <CardDescription>
-                      创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}
-                      {instance.rebuiltAt && (
-                        <span className="block mt-1 text-xs">
-                          重建于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
-                        </span>
-                      )}
-                    </CardDescription>
+          instances.map((instance) => {
+            const needsUpdate = weChatVersion && instance.wechatVersion !== weChatVersion
+            const versionLabel = instance.wechatVersion || '未知版本'
+
+            return (
+              <Card key={instance.id} className={needsUpdate ? 'border-orange-300 bg-orange-50/50' : ''}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        {instance.name}
+                        {needsUpdate && (
+                          <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            需要更新
+                          </span>
+                        )}
+                      </CardTitle>
+                      <CardDescription>
+                        <div className="space-y-1">
+                          <div>创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">分身版本:</span>
+                            <span className={needsUpdate ? 'text-orange-600 font-medium' : ''}>
+                              {versionLabel}
+                            </span>
+                            {weChatVersion && (
+                              <>
+                                <span className="text-gray-400">|</span>
+                                <span className="font-medium">微信版本:</span>
+                                <span>{weChatVersion}</span>
+                              </>
+                            )}
+                          </div>
+                          {instance.rebuiltAt && (
+                            <div className="text-xs text-gray-500">
+                              更新于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
+                            </div>
+                          )}
+                        </div>
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => rebuildInstance(instance.id)}
+                        title={needsUpdate ? "分身版本过低,建议更新到最新微信版本" : "更新分身到最新微信版本"}
+                        className={needsUpdate ? 'border-orange-300 text-orange-700 hover:bg-orange-100' : ''}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                        更新版本
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteInstance(instance.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        删除
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => rebuildInstance(instance.id)}
-                      title="重建分身(微信更新后使用)"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      重建
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => deleteInstance(instance.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      删除
-                    </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div>
+                      <span className="font-medium">Bundle ID:</span> {instance.bundleId}
+                    </div>
+                    <div>
+                      <span className="font-medium">路径:</span> {instance.path}
+                    </div>
+                    {needsUpdate && (
+                      <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                        ⚠️ 此分身基于旧版本微信 ({instance.wechatVersion}) 创建,
+                        当前微信版本为 {weChatVersion}。建议更新以避免兼容性问题。
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      💡 提示: 分身是独立应用,可以直接从启动台启动
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div>
-                    <span className="font-medium">Bundle ID:</span> {instance.bundleId}
-                  </div>
-                  <div>
-                    <span className="font-medium">路径:</span> {instance.path}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    💡 提示: 分身是独立应用,可以直接从启动台启动
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            )
+          })
         )}
       </div>
     </div>

@@ -196,7 +196,8 @@ class WeChatMultiInstancePlugin {
         realPath: instancePath, // 保存实际路径,删除时需要删除实际文件
         bundleId,
         createdAt: new Date().toISOString(),
-        running: false
+        wechatVersion: await this.getWeChatVersion(), // 保存创建时的微信版本
+        rebuiltAt: null
       }
 
       this.instances.set(instance.id, instance)
@@ -523,6 +524,7 @@ class WeChatMultiInstancePlugin {
       // 3. 更新实例配置(保留原有的 id 和 createdAt)
       instance.path = symlinkPath
       instance.realPath = instancePath
+      instance.wechatVersion = await this.getWeChatVersion() // 更新微信版本
       instance.rebuiltAt = new Date().toISOString() // 记录重建时间
 
       await this.saveConfig()

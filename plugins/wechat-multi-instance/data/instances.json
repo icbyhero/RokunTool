@@ -8,7 +8,8 @@
       "realPath": "/Users/rokun/Applications/WeChat3.app",
       "bundleId": "com.tencent.xinWeChat3",
       "createdAt": "2026-01-13T03:18:15.682Z",
-      "running": false
+      "running": false,
+      "rebuiltAt": "2026-01-13T03:18:50.130Z"
     }
   ]
 }
