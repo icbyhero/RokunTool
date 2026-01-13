@@ -111,6 +111,7 @@ interface PermissionApi {
     requestId: string
     granted: boolean
     sessionOnly?: boolean
+    permanent?: boolean  // 是否永久拒绝 (当 granted=false 时)
   }): void
 
   /** 移除监听器 */

@@ -19,7 +19,7 @@ interface PermissionRequest {
 
 interface PermissionRequestDialogProps {
   request: PermissionRequest
-  onResponse: (granted: boolean, sessionOnly?: boolean) => void
+  onResponse: (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => void
   onClose: () => void
 }
 
@@ -115,15 +115,19 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
   }, [onClose])
 
   const handleDeny = () => {
-    onResponse(false)
+    onResponse(false, false, false)  // 临时拒绝
+  }
+
+  const handlePermanentDeny = () => {
+    onResponse(false, false, true)   // 永久拒绝
   }
 
   const handleSessionOnly = () => {
-    onResponse(true, true)
+    onResponse(true, true, false)     // 本次授权
   }
 
   const handlePermanentGrant = () => {
-    onResponse(true, false)
+    onResponse(true, false, false)    // 永久授权
   }
 
   return createPortal(
@@ -215,28 +219,44 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
                     <strong>本次授权</strong>: 权限仅在当前应用会话中有效,关闭应用后失效。
                     下次使用此功能时会再次询问。
                   </li>
-                  <li>撤销权限后,插件可能无法正常工作</li>
+                  <li>
+                    <strong>拒绝</strong>: 仅在本次会话中拒绝,关闭应用后会重置。
+                  </li>
+                  <li>
+                    <strong>永久拒绝</strong>: 永久拒绝此权限,以后不会再次询问。
+                    可在插件设置页面中重新启用。
+                  </li>
                 </ul>
               </div>
             </div>
           )}
 
-          {/* 按钮 */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* 按钮 - 4列布局 */}
+          <div className="grid grid-cols-4 gap-2">
             <Button
-              variant="destructive"
+              variant="outline"
+              size="sm"
               onClick={handleDeny}
             >
               拒绝
             </Button>
             <Button
+              variant="destructive"
+              size="sm"
+              onClick={handlePermanentDeny}
+            >
+              永久拒绝
+            </Button>
+            <Button
               variant="secondary"
+              size="sm"
               onClick={handleSessionOnly}
             >
               本次授权
             </Button>
             <Button
               variant="default"
+              size="sm"
               onClick={handlePermanentGrant}
             >
               永久授权

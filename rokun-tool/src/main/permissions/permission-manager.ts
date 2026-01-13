@@ -54,6 +54,18 @@ export interface PermissionResponse {
   granted: boolean
   permission: Permission
   sessionOnly?: boolean  // 是否仅会话级授权
+  permanent?: boolean   // 是否永久拒绝 (当 granted=false 时)
+}
+
+/**
+ * 权限被永久拒绝事件
+ */
+export interface PermissionDeniedEvent {
+  pluginId: string
+  pluginName: string
+  permission: Permission
+  operation: string
+  timestamp: number
 }
 
 /**
@@ -214,10 +226,23 @@ export class PermissionManager {
       return true
     }
 
-    // 注意:即使是 DENIED 状态也继续,允许用户重新请求
-    // DENIED 状态只在会话期间记住,下次启动应用会重置
+    // 3. 如果是永久拒绝状态,不显示对话框,直接返回false并发送通知
+    if (currentStatus === PermissionStatus.PERMANENTLY_DENIED) {
+      console.log('[PermissionManager] 权限已被永久拒绝,不显示对话框:', { pluginId, permission })
 
-    // 3. 如果是 DENIED 状态,清除状态以便重新请求
+      // 发送永久拒绝通知事件
+      this.broadcastPermissionDenied({
+        pluginId,
+        pluginName: pluginId, // TODO: 从 plugin registry 获取真实名称
+        permission,
+        operation: context?.operation || '未知操作',
+        timestamp: Date.now()
+      })
+
+      return false
+    }
+
+    // 4. 如果是 DENIED 状态,清除状态以便重新请求
     if (currentStatus === PermissionStatus.DENIED) {
       const state = this.permissionStates.get(pluginId)
       if (state) {
@@ -225,7 +250,7 @@ export class PermissionManager {
       }
     }
 
-    // 4. 发送权限请求到渲染进程
+    // 5. 发送权限请求到渲染进程
     const requestId = uuidv4()
     const request: PermissionRequest = {
       id: requestId,
@@ -255,7 +280,7 @@ export class PermissionManager {
       // 等待用户响应 (超时 5 分钟)
       const response = await this.waitForResponse(requestId, 5 * 60 * 1000)
 
-      // 4. 处理用户响应
+      // 6. 处理用户响应
       if (response.granted) {
         if (response.sessionOnly) {
           // 会话级授权
@@ -266,7 +291,9 @@ export class PermissionManager {
           await this.grantPermission(pluginId, permission, 'user', context)
         }
       } else {
-        await this.denyPermission(pluginId, permission, 'user', context)
+        // 根据响应中的 permanent 标志决定是否永久拒绝
+        const permanent = response.permanent ?? false
+        await this.denyPermission(pluginId, permission, 'user', permanent, context)
       }
 
       return response.granted
@@ -383,23 +410,29 @@ export class PermissionManager {
   /**
    * 拒绝权限
    *
-   * 注意:拒绝的权限不会持久化,只在当前会话期间记住
-   * 这样用户下次启动应用时可以重新请求权限
+   * @param pluginId 插件 ID
+   * @param permission 权限
+   * @param source 来源 (user/system)
+   * @param permanent 是否永久拒绝 (默认 false)
+   * @param context 请求上下文
    */
   async denyPermission(
     pluginId: string,
     permission: Permission,
     source: 'user' | 'system',
+    permanent: boolean = false,
     context?: PermissionRequestContext
   ): Promise<void> {
-    // 更新状态 - 只在内存中设置 DENIED 状态,不持久化
     const state = this.getOrCreateState(pluginId)
-    state.permissions[permission] = PermissionStatus.DENIED
+    const status = permanent ? PermissionStatus.PERMANENTLY_DENIED : PermissionStatus.DENIED
 
-    // 添加历史记录 - 记录到内存中,但不持久化
+    // 更新状态
+    state.permissions[permission] = status
+
+    // 添加历史记录
     state.history.push({
       permission,
-      status: PermissionStatus.DENIED,
+      status,
       timestamp: Date.now(),
       source,
       context
@@ -407,11 +440,17 @@ export class PermissionManager {
 
     this.permissionStates.set(pluginId, state)
 
-    // 注意:不调用 saveState,因此 DENIED 状态不会持久化
-    // 这样下次启动应用时,权限状态会重置为 PENDING
+    // 如果是永久拒绝,持久化到 PermissionService
+    if (permanent) {
+      await this.permissionService.denyPermissions(pluginId, [permission])
+      await this.saveState(pluginId)
+    } else {
+      // 临时拒绝不持久化,下次启动应用时重置为 PENDING
+      // 注意:不调用 saveState,因此 DENIED 状态不会持久化
+    }
 
     // 发送状态变更事件
-    this.broadcastPermissionChange(pluginId, permission, PermissionStatus.DENIED)
+    this.broadcastPermissionChange(pluginId, permission, status)
   }
 
   /**
@@ -734,6 +773,16 @@ export class PermissionManager {
         permission,
         status
       })
+    }
+  }
+
+  /**
+   * 广播权限被永久拒绝事件
+   * 当插件尝试使用被永久拒绝的权限时调用
+   */
+  private broadcastPermissionDenied(event: PermissionDeniedEvent): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('permission:permanently-denied', event)
     }
   }
 

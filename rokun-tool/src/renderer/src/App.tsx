@@ -107,15 +107,16 @@ function App(): React.JSX.Element {
   }, [])
 
   // 处理单个权限响应
-  const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean) => {
-    console.log('发送权限响应:', { granted, sessionOnly, requestId: permissionRequest?.id })
+  const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => {
+    console.log('发送权限响应:', { granted, sessionOnly, permanent, requestId: permissionRequest?.id })
 
     if (permissionRequest) {
       // 发送响应到主进程
       window.electronAPI.permission.sendResponse?.({
         requestId: permissionRequest.id,
         granted,
-        sessionOnly
+        sessionOnly,
+        permanent  // 添加 permanent 标志
       })
 
       // 更新 store 中的当前请求
