@@ -1,9 +1,8 @@
-# UI Theme Specification
+# ui-theme Specification
 
-This specification defines requirements for theme support (light/dark mode) and visual consistency across the RokunTool application.
-
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change comprehensive-ui-polish. Update Purpose after archive.
+## Requirements
 ### Requirement: Dark Mode Text Visibility
 
 All text SHALL be visible and readable in both light and dark themes with proper contrast ratios meeting WCAG AA standards (minimum 4.5:1 for normal text).
@@ -155,3 +154,4 @@ Similar UI elements MUST maintain consistent visual treatment across the applica
 - **THEN** similar elements MUST use consistent hover states
 - **AND** focus indicators MUST be visible in both themes
 - **AND** disabled states MUST be consistently styled
+
