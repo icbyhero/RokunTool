@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
-import { Play, Square, Trash2, Plus, RefreshCw, AlertCircle } from 'lucide-react'
+import { Trash2, Plus, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface Instance {
   id: string
@@ -9,9 +9,7 @@ interface Instance {
   path: string
   bundleId: string
   createdAt: string
-  running: boolean
-  pid?: number
-  startedAt?: string
+  rebuiltAt?: string
 }
 
 export function WeChatMultiInstance() {
@@ -96,45 +94,6 @@ export function WeChatMultiInstance() {
     }
   }
 
-  const startInstance = async (instanceId: string) => {
-    try {
-      setError(null)
-      const result = await window.electronAPI.plugin.callMethod<Instance>({
-        pluginId: 'rokun-wechat-multi-instance',
-        method: 'startInstance',
-        args: [instanceId]
-      })
-      if (result.success && result.data) {
-        setInstances((prev) => 
-          prev.map((i) => (i.id === instanceId ? result.data! : i))
-        )
-      } else {
-        setError(result.error || '启动实例失败')
-      }
-    } catch (error) {
-      setError('启动实例失败')
-    }
-  }
-
-  const stopInstance = async (instanceId: string) => {
-    try {
-      setError(null)
-      const result = await window.electronAPI.plugin.callMethod<Instance>({
-        pluginId: 'rokun-wechat-multi-instance',
-        method: 'stopInstance',
-        args: [instanceId]
-      })
-      if (result.success && result.data) {
-        setInstances((prev) => 
-          prev.map((i) => (i.id === instanceId ? result.data! : i))
-        )
-      } else {
-        setError(result.error || '停止实例失败')
-      }
-    } catch (error) {
-      setError('停止实例失败')
-    }
-  }
 
   const deleteInstance = async (instanceId: string) => {
     const instance = instances.find((i) => i.id === instanceId)
@@ -157,6 +116,35 @@ export function WeChatMultiInstance() {
       }
     } catch (error) {
       setError('删除实例失败')
+    }
+  }
+
+  const rebuildInstance = async (instanceId: string) => {
+    const instance = instances.find((i) => i.id === instanceId)
+    if (!instance) return
+
+    const confirmed = window.confirm(
+      `确定要重建实例 "${instance.name}" 吗？\n\n` +
+      '这将删除当前分身并使用最新的微信版本重新创建。'
+    )
+    if (!confirmed) return
+
+    try {
+      setError(null)
+      const result = await window.electronAPI.plugin.callMethod<Instance>({
+        pluginId: 'rokun-wechat-multi-instance',
+        method: 'rebuildInstance',
+        args: [instanceId]
+      })
+      if (result.success && result.data) {
+        setInstances((prev) =>
+          prev.map((i) => (i.id === instanceId ? result.data! : i))
+        )
+      } else {
+        setError(result.error || '重建实例失败')
+      }
+    } catch (error) {
+      setError('重建实例失败')
     }
   }
 
@@ -228,34 +216,26 @@ export function WeChatMultiInstance() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      {instance.name}
-                      {instance.running && (
-                        <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
-                          运行中
-                        </span>
-                      )}
-                    </CardTitle>
+                    <CardTitle>{instance.name}</CardTitle>
                     <CardDescription>
                       创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}
+                      {instance.rebuiltAt && (
+                        <span className="block mt-1 text-xs">
+                          重建于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
+                        </span>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    {instance.running ? (
-                      <Button variant="outline" size="sm" onClick={() => stopInstance(instance.id)}>
-                        <Square className="w-4 h-4 mr-1" />
-                        停止
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => startInstance(instance.id)}
-                      >
-                        <Play className="w-4 h-4 mr-1" />
-                        启动
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => rebuildInstance(instance.id)}
+                      title="重建分身(微信更新后使用)"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      重建
+                    </Button>
                     <Button
                       variant="destructive"
                       size="sm"
@@ -275,17 +255,9 @@ export function WeChatMultiInstance() {
                   <div>
                     <span className="font-medium">路径:</span> {instance.path}
                   </div>
-                  {instance.pid && (
-                    <div>
-                      <span className="font-medium">进程 ID:</span> {instance.pid}
-                    </div>
-                  )}
-                  {instance.startedAt && (
-                    <div>
-                      <span className="font-medium">启动时间:</span>{' '}
-                      {new Date(instance.startedAt).toLocaleString('zh-CN')}
-                    </div>
-                  )}
+                  <div className="text-xs text-gray-500">
+                    💡 提示: 分身是独立应用,可以直接从启动台启动
+                  </div>
                 </div>
               </CardContent>
             </Card>
