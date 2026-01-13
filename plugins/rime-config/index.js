@@ -869,27 +869,8 @@ class RimeConfigPlugin {
       diagnostics.warnings.push('default.custom.yaml 不存在,将自动创建')
     }
 
-    // 检查 rime_deployer
-    try {
-      const result = await this.context.api.process.exec('which rime_deployer')
-      if (result.stdout.trim()) {
-        diagnostics.info.rimeDeployer = result.stdout.trim()
-
-        // 尝试获取版本
-        try {
-          const versionResult = await this.context.api.process.exec('rime_deployer --version')
-          if (versionResult.stdout) {
-            diagnostics.version = versionResult.stdout.trim().split('\n')[0]
-          }
-        } catch (error) {
-          diagnostics.version = '未知版本'
-        }
-      } else {
-        diagnostics.errors.push('未找到 rime_deployer 命令')
-      }
-    } catch (error) {
-      diagnostics.errors.push('无法检查 rime_deployer: ' + error.message)
-    }
+    // 检测 Rime 版本 (跨平台)
+    await this.detectRimeVersion(diagnostics)
 
     // 检查 Plum
     try {
@@ -951,6 +932,127 @@ class RimeConfigPlugin {
       this.context.logger.error('Rime 部署失败:', error)
       throw error
     }
+  }
+
+  /**
+   * 检测 Rime 版本 (跨平台)
+   */
+  async detectRimeVersion(diagnostics) {
+    const platform = process.platform
+
+    try {
+      if (platform === 'darwin') {
+        // macOS: 尝试从 Squirrel.app 读取版本
+        await this.getSquirrelVersion(diagnostics)
+      } else if (platform === 'linux') {
+        // Linux: 使用 rime_deployer --version
+        await this.getRimeDeployerVersion(diagnostics)
+      } else if (platform === 'win32') {
+        // Windows: Weasel (预留)
+        await this.getWeaselVersion(diagnostics)
+      }
+    } catch (error) {
+      this.context.logger.warn('版本检测失败:', error.message)
+      diagnostics.version = null
+    }
+  }
+
+  /**
+   * 获取 macOS Squirrel 版本
+   */
+  async getSquirrelVersion(diagnostics) {
+    const squirrelPaths = [
+      '/Applications/Squirrel.app',
+      join(process.env.HOME, 'Applications/Squirrel.app')
+    ]
+
+    for (const squirrelPath of squirrelPaths) {
+      try {
+        // 方法1: 使用 defaults read 命令
+        const result = await this.context.api.process.exec(
+          `defaults read "${squirrelPath}/Contents/Info.plist" CFBundleShortVersionString`
+        )
+
+        if (result.stdout && result.stdout.trim()) {
+          const version = result.stdout.trim()
+          diagnostics.version = `Squirrel ${version}`
+          diagnostics.info.squirrelPath = squirrelPath
+          diagnostics.info.squirrelVersion = version
+          this.context.logger.info(`检测到 Squirrel 版本: ${version}`)
+          return
+        }
+      } catch (error) {
+        // defaults read 失败,尝试方法2
+        continue
+      }
+    }
+
+    // 方法2: 直接读取 Info.plist 文件
+    for (const squirrelPath of squirrelPaths) {
+      try {
+        const plistPath = join(squirrelPath, 'Contents/Info.plist')
+        const plistContent = await readFile(plistPath, 'utf8')
+
+        // 解析 XML 格式的 Info.plist
+        const versionMatch = plistContent.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/)
+        const fallbackMatch = plistContent.match(/<key>CFBundleVersion<\/key>\s*<string>([^<]+)<\/string>/)
+
+        if (versionMatch) {
+          const version = versionMatch[1]
+          diagnostics.version = `Squirrel ${version}`
+          diagnostics.info.squirrelPath = squirrelPath
+          diagnostics.info.squirrelVersion = version
+          this.context.logger.info(`从 Info.plist 读取到 Squirrel 版本: ${version}`)
+          return
+        } else if (fallbackMatch) {
+          const version = fallbackMatch[1]
+          diagnostics.version = `Squirrel ${version}`
+          diagnostics.info.squirrelPath = squirrelPath
+          diagnostics.info.squirrelVersion = version
+          this.context.logger.info(`从 Info.plist 读取到 Squirrel 版本 (fallback): ${version}`)
+          return
+        }
+      } catch (error) {
+        // 文件读取失败,继续下一个路径
+        continue
+      }
+    }
+
+    diagnostics.warnings.push('无法检测 Squirrel 版本')
+  }
+
+  /**
+   * 获取 Linux rime_deployer 版本
+   */
+  async getRimeDeployerVersion(diagnostics) {
+    try {
+      const result = await this.context.api.process.exec('which rime_deployer')
+      if (result.stdout.trim()) {
+        diagnostics.info.rimeDeployer = result.stdout.trim()
+
+        try {
+          const versionResult = await this.context.api.process.exec('rime_deployer --version')
+          if (versionResult.stdout) {
+            diagnostics.version = versionResult.stdout.trim().split('\n')[0]
+            this.context.logger.info(`检测到 rime_deployer 版本: ${diagnostics.version}`)
+          }
+        } catch (error) {
+          diagnostics.version = null
+        }
+      } else {
+        diagnostics.warnings.push('未找到 rime_deployer 命令')
+      }
+    } catch (error) {
+      diagnostics.warnings.push('无法检查 rime_deployer: ' + error.message)
+    }
+  }
+
+  /**
+   * 获取 Windows Weasel 版本 (预留)
+   */
+  async getWeaselVersion(diagnostics) {
+    diagnostics.warnings.push('Windows Weasel 版本检测尚未实现')
+    diagnostics.version = null
   }
 
   /**
