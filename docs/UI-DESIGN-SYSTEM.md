@@ -159,26 +159,120 @@ px-4 py-2  // 按钮默认内边距
 
 ### Button组件
 
-**变体使用规范**:
+#### 变体(Variants)
 
-- `default`: 主要操作,如"保存"、"提交"
-- `destructive`: 破坏性操作,如"删除"、"卸载"
-- `outline`: 次要操作,如"取消"
-- `ghost`: 无背景的操作,如工具栏按钮
-- `link`: 链接样式的操作
+Button 组件提供 6 种变体,每种都支持完整的暗色模式:
 
-**示例**:
+| 变体 | 用途 | 明色模式样式 | 暗色模式样式 | 使用场景 |
+|-----|-----|-------------|-------------|---------|
+| `default` | 主要操作 | bg-primary-600 text-white | bg-primary-600 text-white | 保存、提交、确认 |
+| `destructive` | 破坏性操作 | bg-red-600 text-white | bg-red-600 text-white | 删除、卸载、取消 |
+| `secondary` | 次要操作 | bg-gray-200 text-gray-900 | bg-gray-700 text-white | 备选操作 |
+| `outline` | 边框按钮 | border-gray-300 bg-white | border-gray-600 bg-gray-800 | 取消、返回 |
+| `ghost` | 幽灵按钮 | hover:bg-gray-100 | hover:bg-gray-800 | 工具栏、图标按钮 |
+| `link` | 链接按钮 | text-primary-600 | text-primary-400 | 文字链接、辅助操作 |
+
+#### 尺寸(Sizes)
+
+| 尺寸 | 高度 | 内边距 | 使用场景 |
+|-----|-----|-------|---------|
+| `sm` | h-9 (36px) | px-3 | 紧凑布局、表单 |
+| `default` | h-10 (40px) | px-4 py-2 | 默认按钮 |
+| `lg` | h-11 (44px) | px-8 | 重要操作、CTA |
+| `icon` | h-10 w-10 (40px) | - | 图标按钮 |
+
+#### 状态规范
+
+**禁用状态**:
+- 自动应用 `disabled:opacity-50`
+- 自动禁用指针事件 `disabled:pointer-events-none`
+- 保持可读性,但明显不可交互
+
+**焦点状态**:
+- 自动应用 `focus-visible:ring-2 focus-visible:ring-primary-500`
+- 确保键盘导航可见性
+
+**悬停状态**:
+- `default`: hover:bg-primary-700
+- `destructive`: hover:bg-red-700
+- `outline`: hover:bg-gray-100 (明色) / hover:bg-gray-700 (暗色)
+- `ghost`: hover:bg-gray-100 (明色) / hover:bg-gray-800 (暗色)
+
+#### 使用示例
+
+**基础用法**:
 ```tsx
+// 主要操作
 <Button variant="default" onClick={handleSave}>
   保存
 </Button>
+
+// 破坏性操作
 <Button variant="destructive" onClick={handleDelete}>
   删除
 </Button>
+
+// 次要操作
 <Button variant="outline" onClick={handleCancel}>
   取消
 </Button>
 ```
+
+**不同尺寸**:
+```tsx
+<Button size="sm">小按钮</Button>
+<Button size="default">默认按钮</Button>
+<Button size="lg">大按钮</Button>
+```
+
+**图标按钮**:
+```tsx
+<Button size="icon" variant="ghost" aria-label="设置">
+  <Settings className="h-4 w-4" />
+</Button>
+```
+
+**带图标和文字**:
+```tsx
+<Button variant="default">
+  <Download className="mr-2 h-4 w-4" />
+  下载
+</Button>
+```
+
+**加载状态**:
+```tsx
+<Button disabled>
+  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+  处理中...
+</Button>
+```
+
+#### 最佳实践
+
+1. **主要操作 vs 次要操作**
+   - 每个视图通常只有一个主要操作按钮
+   - 使用 `default` 变体突出主要操作
+   - 使用 `outline` 或 `ghost` 处理次要操作
+
+2. **破坏性操作**
+   - 必须使用 `destructive` 变体
+   - 考虑添加确认对话框
+   - 提供清晰的后果说明
+
+3. **按钮组合**
+   ```tsx
+   // 对话框按钮组 - 正确的层级
+   <div className="flex justify-end gap-2">
+     <Button variant="outline">取消</Button>
+     <Button variant="default">确认</Button>
+   </div>
+   ```
+
+4. **可访问性**
+   - 图标按钮必须添加 `aria-label`
+   - 使用语义化动词(保存、删除、取消)
+   - 确保颜色对比度符合 WCAG AA 标准
 
 ### Badge组件
 
@@ -419,6 +513,7 @@ export function StatusCard({ title, status, description }: StatusCardProps) {
 
 ## 更新日志
 
+- **2026-01-14**: 补充 Button 组件详细规范(变体、尺寸、状态、最佳实践)
 - **2026-01-13**: 初始版本,定义核心规范
 - 后续更新将记录在此
 
