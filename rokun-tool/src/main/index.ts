@@ -15,7 +15,20 @@ const serviceManager = ServiceManager.getInstance()
 const permissionManager = new PermissionManager()
 
 // 初始化插件系统
-const pluginsDir = join(__dirname, '../../plugins')
+// 根据环境决定插件目录路径
+// 开发环境: __dirname = out/main/ → ../../../plugins/ = 项目根目录/plugins/
+// 生产环境: __dirname = out/main/ → ../../plugins/ = 项目根目录/plugins/
+const isDev = process.env.NODE_ENV === 'development'
+const pluginsDir = isDev
+  ? join(__dirname, '../../../plugins')
+  : join(__dirname, '../../plugins')
+
+// 输出调试信息
+console.log('[Plugin System] Initializing...')
+console.log(`[Plugin System] Environment: ${process.env.NODE_ENV}`)
+console.log(`[Plugin System] __dirname: ${__dirname}`)
+console.log(`[Plugin System] Plugins directory: ${pluginsDir}`)
+
 const pluginRegistry = new PluginRegistry()
 const pluginLoader = new PluginLoader(pluginsDir, pluginRegistry, serviceManager, permissionManager)
 const ipcHandlers = new IpcHandlers(pluginRegistry, serviceManager, permissionManager)
