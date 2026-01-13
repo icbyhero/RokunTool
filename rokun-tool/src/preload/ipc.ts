@@ -96,6 +96,34 @@ interface PermissionApi {
     permission: string
   }): Promise<{ success: boolean; error?: string }>
 
+  /** 批量检查权限 */
+  checkPermissions(request: {
+    pluginId: string
+    permissions: string[]
+  }): Promise<{
+    hasPermanentDeny: boolean
+    permanentlyDenied: string[]
+    pending: string[]
+    granted: string[]
+    error?: string
+  }>
+
+  /** 批量请求权限 */
+  requestPermissions(request: {
+    pluginId: string
+    permissions: string[]
+    reason?: string
+    context?: PermissionRequestContext
+  }): Promise<{
+    allGranted: boolean
+    results: Array<{
+      permission: string
+      granted: boolean
+      permanent?: boolean
+    }>
+    error?: string
+  }>
+
   /** 监听权限请求事件 */
   onRequest(callback: (_event: any, request: PermissionRequest) => void): void
 

@@ -10,6 +10,7 @@ import { PluginContainer } from './components/plugin/PluginContainer'
 import { PluginErrorBoundary } from './components/plugin/PluginErrorBoundary'
 import { PermissionRequestDialog } from './components/permissions/PermissionRequestDialog'
 import { BatchPermissionDialog } from './components/permissions/BatchPermissionDialog'
+import { PermissionDeniedToast } from './components/permissions/PermissionDeniedToast'
 import { useUIStore } from './store/uiStore'
 import { usePluginStore } from './store/pluginStore'
 import {
@@ -52,10 +53,27 @@ interface BatchPermissionRequest {
 }
 
 function App(): React.JSX.Element {
-  const { currentPage, toasts, activePluginId } = useUIStore()
+  const { currentPage, toasts, activePluginId, setCurrentPage } = useUIStore()
   const { setCurrentPermissionRequest } = usePluginStore()
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null)
   const [batchPermissionRequest, setBatchPermissionRequest] = useState<BatchPermissionRequest | null>(null)
+  const [permissionDeniedToasts, setPermissionDeniedToasts] = useState<Array<{
+    id: string
+    pluginName: string
+    permission: string
+    operation: string
+    timestamp: number
+  }>>([])
+
+  // 处理导航到设置页面
+  const handleOpenSettings = () => {
+    setCurrentPage('settings')
+  }
+
+  // 移除权限被拒绝通知
+  const removePermissionDeniedToast = (id: string) => {
+    setPermissionDeniedToasts(prev => prev.filter(toast => toast.id !== id))
+  }
 
   // 监听单个权限请求事件
   useEffect(() => {
@@ -105,6 +123,54 @@ function App(): React.JSX.Element {
       }
     }
   }, [])
+
+  // 监听权限被永久拒绝事件
+  useEffect(() => {
+    const handlePermissionDenied = (_event: any, event: {
+      pluginId: string
+      pluginName: string
+      permission: string
+      operation: string
+      timestamp: number
+    }) => {
+      console.log('[App] 收到权限被永久拒绝事件:', event)
+
+      // 节流: 同一个(插件, 权限)组合每个会话只通知一次
+      const existingToast = permissionDeniedToasts.find(
+        toast => toast.pluginName === event.pluginName && toast.permission === event.permission
+      )
+
+      if (!existingToast) {
+        const newToast = {
+          id: `${event.pluginId}-${event.permission}-${event.timestamp}`,
+          pluginName: event.pluginName,
+          permission: event.permission,
+          operation: event.operation,
+          timestamp: event.timestamp
+        }
+
+        setPermissionDeniedToasts(prev => [...prev, newToast])
+
+        // 5秒后自动关闭通知
+        setTimeout(() => {
+          setPermissionDeniedToasts(prev => prev.filter(toast => toast.id !== newToast.id))
+        }, 8000)
+      }
+    }
+
+    // 监听来自主进程的永久拒绝事件
+    const ipcRenderer = (window as any).electron?.ipcRenderer
+    if (ipcRenderer) {
+      ipcRenderer.on('permission:permanently-denied', handlePermissionDenied)
+    }
+
+    // 清理函数
+    return () => {
+      if (ipcRenderer) {
+        ipcRenderer.removeListener('permission:permanently-denied', handlePermissionDenied)
+      }
+    }
+  }, [permissionDeniedToasts])
 
   // 处理单个权限响应
   const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => {
@@ -209,6 +275,23 @@ function App(): React.JSX.Element {
           onClose={handleCloseBatchDialog}
         />
       )}
+
+      {/* 权限被永久拒绝通知 */}
+      {permissionDeniedToasts.map((toast) => (
+        <div
+          key={toast.id}
+          className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom duration-300"
+          style={{ maxWidth: '500px' }}
+        >
+          <PermissionDeniedToast
+            pluginName={toast.pluginName}
+            permission={toast.permission}
+            operation={toast.operation}
+            onOpenSettings={handleOpenSettings}
+            onClose={() => removePermissionDeniedToast(toast.id)}
+          />
+        </div>
+      ))}
 
       <ToastViewport>
         {toasts.map((toast) => (

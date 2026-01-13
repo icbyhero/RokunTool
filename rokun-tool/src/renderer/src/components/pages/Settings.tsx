@@ -4,6 +4,7 @@ import { Switch } from '../ui/Switch'
 import { Label } from '../ui/Label'
 import { useUIStore } from '../../store/uiStore'
 import { Moon, Sun, Save } from 'lucide-react'
+import { PermissionSettings } from '../permissions/PermissionSettings'
 
 export function Settings() {
   const { theme, toggleTheme, addToast } = useUIStore()
@@ -124,6 +125,8 @@ export function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        <PermissionSettings />
 
         <Card>
           <CardHeader>
