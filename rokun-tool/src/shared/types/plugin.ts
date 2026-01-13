@@ -206,6 +206,45 @@ export interface PluginAPI {
     }): Promise<boolean>
     check(permission: PluginPermission): Promise<PermissionStatus>
     has(permission: PluginPermission): boolean
+
+    /**
+     * 批量检查权限(不弹出对话框)
+     * 用于在执行功能前预检查所有需要的权限
+     *
+     * @param permissions 权限列表
+     * @returns 权限检查结果
+     */
+    checkPermissions(permissions: PluginPermission[]): Promise<{
+      hasPermanentDeny: boolean
+      permanentlyDenied: PluginPermission[]
+      pending: PluginPermission[]
+      granted: PluginPermission[]
+    }>
+
+    /**
+     * 批量请求权限
+     * 用于一次性请求多个权限
+     *
+     * @param permissions 权限列表
+     * @param reason 请求原因
+     * @param context 操作上下文
+     * @returns 权限请求结果
+     */
+    requestPermissions(
+      permissions: PluginPermission[],
+      reason?: string,
+      context?: {
+        operation: string
+        target?: string
+      }
+    ): Promise<{
+      allGranted: boolean
+      results: Array<{
+        permission: PluginPermission
+        granted: boolean
+        permanent?: boolean
+      }>
+    }>
   }
 
   /** 进度反馈 API */

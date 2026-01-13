@@ -9,6 +9,7 @@ import { About } from './components/pages/About'
 import { PluginContainer } from './components/plugin/PluginContainer'
 import { PluginErrorBoundary } from './components/plugin/PluginErrorBoundary'
 import { PermissionRequestDialog } from './components/permissions/PermissionRequestDialog'
+import { BatchPermissionDialog } from './components/permissions/BatchPermissionDialog'
 import { useUIStore } from './store/uiStore'
 import { usePluginStore } from './store/pluginStore'
 import {
@@ -20,6 +21,7 @@ import {
 } from './components/ui/Toast'
 import { CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { PluginPermission } from '@shared/types/plugin'
 
 // 权限请求类型(与 preload 中的定义保持一致)
 interface PermissionRequest {
@@ -35,12 +37,27 @@ interface PermissionRequest {
   requestedAt: Date
 }
 
+// 批量权限请求类型
+interface BatchPermissionRequest {
+  id: string
+  pluginId: string
+  pluginName: string
+  permissions: PluginPermission[]
+  reason?: string
+  context?: {
+    operation: string
+    target?: string
+  }
+  requestedAt: Date
+}
+
 function App(): React.JSX.Element {
   const { currentPage, toasts, activePluginId } = useUIStore()
   const { setCurrentPermissionRequest } = usePluginStore()
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null)
+  const [batchPermissionRequest, setBatchPermissionRequest] = useState<BatchPermissionRequest | null>(null)
 
-  // 监听权限请求事件
+  // 监听单个权限请求事件
   useEffect(() => {
     const handlePermissionRequest = (_event: any, request: PermissionRequest) => {
       console.log('[App] 收到权限请求事件:', request)
@@ -67,7 +84,29 @@ function App(): React.JSX.Element {
     }
   }, [setCurrentPermissionRequest])
 
-  // 处理权限响应
+  // 监听批量权限请求事件
+  useEffect(() => {
+    const handleBatchPermissionRequest = (_event: any, request: BatchPermissionRequest) => {
+      console.log('[App] 收到批量权限请求事件:', request)
+      setBatchPermissionRequest(request)
+    }
+
+    // 监听来自主进程的批量权限请求
+    console.log('[App] 注册批量权限请求监听器...')
+    const ipcRenderer = (window as any).electron?.ipcRenderer
+    if (ipcRenderer) {
+      ipcRenderer.on('permission:batchRequest', handleBatchPermissionRequest)
+    }
+
+    // 清理函数 - 移除事件监听器
+    return () => {
+      if (ipcRenderer) {
+        ipcRenderer.removeListener('permission:batchRequest', handleBatchPermissionRequest)
+      }
+    }
+  }, [])
+
+  // 处理单个权限响应
   const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean) => {
     console.log('发送权限响应:', { granted, sessionOnly, requestId: permissionRequest?.id })
 
@@ -87,10 +126,36 @@ function App(): React.JSX.Element {
     }
   }
 
+  // 处理批量权限响应
+  const handleBatchPermissionResponse = (result: { granted: boolean; sessionOnly: boolean }) => {
+    console.log('发送批量权限响应:', { ...result, requestId: batchPermissionRequest?.id })
+
+    if (batchPermissionRequest) {
+      // 发送响应到主进程
+      const ipcRenderer = (window as any).electron?.ipcRenderer
+      if (ipcRenderer) {
+        ipcRenderer.send('permission:batchResponse', {
+          requestId: batchPermissionRequest.id,
+          granted: result.granted,
+          sessionOnly: result.sessionOnly
+        })
+      }
+
+      // 关闭对话框
+      setBatchPermissionRequest(null)
+    }
+  }
+
   // 处理关闭对话框
   const handleCloseDialog = () => {
     console.log('关闭权限请求对话框')
     setPermissionRequest(null)
+  }
+
+  // 处理关闭批量对话框
+  const handleCloseBatchDialog = () => {
+    console.log('关闭批量权限请求对话框')
+    setBatchPermissionRequest(null)
   }
 
   const renderPage = () => {
@@ -132,6 +197,15 @@ function App(): React.JSX.Element {
           request={permissionRequest}
           onResponse={handlePermissionResponse}
           onClose={handleCloseDialog}
+        />
+      )}
+
+      {/* 批量权限请求对话框 */}
+      {batchPermissionRequest && (
+        <BatchPermissionDialog
+          request={batchPermissionRequest}
+          onResponse={handleBatchPermissionResponse}
+          onClose={handleCloseBatchDialog}
         />
       )}
 

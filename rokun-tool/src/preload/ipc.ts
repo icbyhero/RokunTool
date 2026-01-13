@@ -90,6 +90,12 @@ interface PermissionApi {
     permission: string
   }): Promise<{ success: boolean; error?: string }>
 
+  /** 清除永久拒绝状态 */
+  clearPermanentDeny(request: {
+    pluginId: string
+    permission: string
+  }): Promise<{ success: boolean; error?: string }>
+
   /** 监听权限请求事件 */
   onRequest(callback: (_event: any, request: PermissionRequest) => void): void
 
@@ -248,6 +254,7 @@ const permissionApi: PermissionApi = {
   check: (request) => ipcRenderer.invoke('permission:check', request),
   getStatus: (request) => ipcRenderer.invoke('permission:getStatus', request),
   revoke: (request) => ipcRenderer.invoke('permission:revoke', request),
+  clearPermanentDeny: (request) => ipcRenderer.invoke('permission:clearPermanentDeny', request),
   onRequest: (callback) => ipcRenderer.on('permission:request', (_, request) => callback(_, request)),
   onChanged: (callback) => ipcRenderer.on('permission:changed', (_, event) => callback(_, event)),
   sendResponse: (response) => ipcRenderer.send('permission:response', response),

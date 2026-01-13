@@ -333,9 +333,9 @@ export function RimeConfig() {
     return (
       <>
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Rime 未安装</h2>
-          <p className="text-gray-600 mb-4">请先安装 Rime 输入法后再使用此功能</p>
+          <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Rime 未安装</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">请先安装 Rime 输入法后再使用此功能</p>
           <div className="flex gap-2">
             <Button onClick={checkRimeStatus}>
               <RefreshCw className="w-4 h-4 mr-2" />

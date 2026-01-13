@@ -19,9 +19,10 @@ import { SessionPermissionManager } from './session-permission-manager'
  * 权限状态
  */
 export enum PermissionStatus {
-  PENDING = 'pending',   // 未询问
-  GRANTED = 'granted',   // 已授予
-  DENIED = 'denied'      // 已拒绝
+  PENDING = 'pending',              // 未询问
+  GRANTED = 'granted',              // 已授予
+  DENIED = 'denied',                // 已拒绝(会话级,不持久化)
+  PERMANENTLY_DENIED = 'permanently_denied'  // 永久拒绝
 }
 
 /**
@@ -52,6 +53,28 @@ export interface PermissionResponse {
   requestId: string
   granted: boolean
   permission: Permission
+  sessionOnly?: boolean  // 是否仅会话级授权
+}
+
+/**
+ * 批量权限请求
+ */
+export interface BatchPermissionRequest {
+  id: string
+  pluginId: string
+  pluginName: string
+  permissions: Permission[]
+  reason?: string
+  context?: PermissionRequestContext
+  requestedAt: Date
+}
+
+/**
+ * 批量权限请求响应
+ */
+export interface BatchPermissionResponse {
+  requestId: string
+  granted: boolean
   sessionOnly?: boolean  // 是否仅会话级授权
 }
 
@@ -105,6 +128,7 @@ export class PermissionManager {
   private store: PermissionStore
   private permissionStates: Map<string, PluginPermissionState> = new Map()
   private pendingRequests: Map<string, PermissionRequest> = new Map()
+  private pendingBatchRequests: Map<string, BatchPermissionRequest> = new Map()
   private mainWindow: BrowserWindow | null = null
   private sessionPermissionManager: SessionPermissionManager
 
@@ -284,6 +308,38 @@ export class PermissionManager {
   }
 
   /**
+   * 等待批量权限用户响应
+   */
+  private waitForBatchResponse(requestId: string, timeout: number): Promise<BatchPermissionResponse> {
+    return new Promise((resolve, reject) => {
+      console.log('[PermissionManager] 开始等待批量权限响应, requestId:', requestId)
+
+      const timeoutId = setTimeout(() => {
+        console.error('[PermissionManager] 批量权限请求超时, requestId:', requestId)
+        // 清理监听器
+        ipcMain.removeListener('permission:batchResponse', handleResponse)
+        reject(new Error('批量权限请求超时'))
+      }, timeout)
+
+      const handleResponse = (_event: any, response: BatchPermissionResponse) => {
+        console.log('[PermissionManager] 收到批量权限响应:', { requestId, responseRequestId: response.requestId, granted: response.granted })
+
+        if (response.requestId === requestId) {
+          console.log('[PermissionManager] 批量权限响应ID匹配,解析Promise')
+          clearTimeout(timeoutId)
+          ipcMain.removeListener('permission:batchResponse', handleResponse)
+          resolve(response)
+        } else {
+          console.log('[PermissionManager] 批量权限响应ID不匹配,忽略')
+        }
+      }
+
+      console.log('[PermissionManager] 注册批量权限响应监听器')
+      ipcMain.on('permission:batchResponse', handleResponse)
+    })
+  }
+
+  /**
    * 授予权限
    */
   async grantPermission(
@@ -360,18 +416,19 @@ export class PermissionManager {
 
   /**
    * 撤销权限
+   * 将已授予的权限重置为 pending 状态,下次插件请求时会重新询问
    */
   async revokePermission(pluginId: string, permission: Permission): Promise<void> {
     // 从 PermissionService 撤销
     await this.permissionService.revokePermissions(pluginId, [permission])
 
-    // 更新状态
+    // 更新状态为 pending (而不是 denied)
     const state = this.permissionStates.get(pluginId)
     if (state) {
-      state.permissions[permission] = PermissionStatus.DENIED
+      state.permissions[permission] = PermissionStatus.PENDING
       state.history.push({
         permission,
-        status: PermissionStatus.DENIED,
+        status: PermissionStatus.PENDING,
         timestamp: Date.now(),
         source: 'user'
       })
@@ -379,7 +436,224 @@ export class PermissionManager {
     }
 
     // 发送状态变更事件
-    this.broadcastPermissionChange(pluginId, permission, PermissionStatus.DENIED)
+    this.broadcastPermissionChange(pluginId, permission, PermissionStatus.PENDING)
+  }
+
+  /**
+   * 清除永久拒绝状态
+   * 将权限状态从 permanently_denied 重置为 pending
+   */
+  async clearPermanentDeny(pluginId: string, permission: Permission): Promise<void> {
+    // 更新状态
+    const state = this.permissionStates.get(pluginId)
+    if (state) {
+      // 检查当前是否为永久拒绝状态
+      if (state.permissions[permission] !== PermissionStatus.PERMANENTLY_DENIED) {
+        throw new Error(`权限 ${permission} 不是永久拒绝状态`)
+      }
+
+      // 重置为 pending
+      state.permissions[permission] = PermissionStatus.PENDING
+
+      // 添加历史记录
+      state.history.push({
+        permission,
+        status: PermissionStatus.PENDING,
+        timestamp: Date.now(),
+        source: 'user'
+      })
+
+      // 保存状态
+      await this.saveState(pluginId)
+    }
+
+    // 发送状态变更事件
+    this.broadcastPermissionChange(pluginId, permission, PermissionStatus.PENDING)
+  }
+
+  /**
+   * 批量检查权限(不弹出对话框)
+   * 用于插件在执行功能前预检查所有需要的权限
+   *
+   * @param pluginId 插件ID
+   * @param permissions 需要检查的权限列表
+   * @returns 权限检查结果
+   */
+  async checkPermissions(
+    pluginId: string,
+    permissions: Permission[]
+  ): Promise<{
+    hasPermanentDeny: boolean
+    permanentlyDenied: Permission[]
+    pending: Permission[]
+    granted: Permission[]
+  }> {
+    const permanentlyDenied: Permission[] = []
+    const pending: Permission[] = []
+    const granted: Permission[] = []
+
+    for (const permission of permissions) {
+      const status = this.checkPermission(pluginId, permission)
+
+      switch (status) {
+        case PermissionStatus.PERMANENTLY_DENIED:
+          permanentlyDenied.push(permission)
+          break
+        case PermissionStatus.PENDING:
+          pending.push(permission)
+          break
+        case PermissionStatus.GRANTED:
+          granted.push(permission)
+          break
+        case PermissionStatus.DENIED:
+          // DENIED 状态视为 pending,因为会话拒绝后可以重新请求
+          pending.push(permission)
+          break
+      }
+    }
+
+    return {
+      hasPermanentDeny: permanentlyDenied.length > 0,
+      permanentlyDenied,
+      pending,
+      granted
+    }
+  }
+
+  /**
+   * 批量请求权限
+   * 使用批量权限对话框一次性请求所有权限
+   *
+   * @param pluginId 插件ID
+   * @param permissions 需要请求的权限列表
+   * @param reason 请求原因
+   * @param context 操作上下文
+   * @returns 批量权限请求结果
+   */
+  async requestPermissions(
+    pluginId: string,
+    permissions: Permission[],
+    reason?: string,
+    context?: PermissionRequestContext
+  ): Promise<{
+    allGranted: boolean
+    results: Array<{
+      permission: Permission
+      granted: boolean
+      permanent?: boolean
+    }>
+  }> {
+    // 过滤出需要请求的权限(排除已授予和永久拒绝的)
+    const permissionsToRequest = permissions.filter(permission => {
+      const status = this.checkPermission(pluginId, permission)
+      return status !== PermissionStatus.GRANTED && status !== PermissionStatus.PERMANENTLY_DENIED
+    })
+
+    // 如果没有需要请求的权限,直接返回成功
+    if (permissionsToRequest.length === 0) {
+      return {
+        allGranted: true,
+        results: permissions.map(permission => ({
+          permission,
+          granted: true,
+          permanent: true
+        }))
+      }
+    }
+
+    // 如果只有一个权限需要请求,使用单个权限对话框
+    if (permissionsToRequest.length === 1) {
+      const granted = await this.requestPermission(
+        pluginId,
+        permissionsToRequest[0],
+        reason,
+        context
+      )
+
+      return {
+        allGranted: granted,
+        results: permissions.map(permission => {
+          const status = this.checkPermission(pluginId, permission)
+          return {
+            permission,
+            granted: status === PermissionStatus.GRANTED || permission === permissionsToRequest[0] ? granted : false,
+            permanent: status === PermissionStatus.GRANTED
+          }
+        })
+      }
+    }
+
+    // 发送批量权限请求到渲染进程
+    const requestId = uuidv4()
+    const request: BatchPermissionRequest = {
+      id: requestId,
+      pluginId,
+      pluginName: pluginId, // TODO: 从 plugin registry 获取真实名称
+      permissions: permissionsToRequest,
+      reason,
+      context,
+      requestedAt: new Date()
+    }
+
+    this.pendingBatchRequests.set(requestId, request)
+
+    try {
+      // 发送事件到渲染进程
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        console.log('[PermissionManager] 发送批量权限请求事件到渲染进程:', request)
+        this.mainWindow.webContents.send('permission:batchRequest', request)
+        console.log('[PermissionManager] 批量权限请求事件已发送')
+      } else {
+        console.error('[PermissionManager] 主窗口不可用,无法发送批量权限请求事件')
+      }
+
+      // 等待用户响应 (超时 5 分钟)
+      const response = await this.waitForBatchResponse(requestId, 5 * 60 * 1000)
+
+      // 处理用户响应
+      if (response.granted) {
+        if (response.sessionOnly) {
+          // 会话级授权 - 授予所有请求的权限
+          for (const permission of permissionsToRequest) {
+            this.sessionPermissionManager.grant(pluginId, permission)
+          }
+          console.log('[PermissionManager] 授予会话级权限:', { pluginId, permissions: permissionsToRequest })
+        } else {
+          // 永久授权 - 授予所有请求的权限
+          for (const permission of permissionsToRequest) {
+            await this.grantPermission(pluginId, permission, 'user', context)
+          }
+        }
+      } else {
+        // 拒绝 - 拒绝所有请求的权限
+        for (const permission of permissionsToRequest) {
+          await this.denyPermission(pluginId, permission, 'user', context)
+        }
+      }
+
+      // 构建结果
+      const results = permissions.map(permission => {
+        const status = this.checkPermission(pluginId, permission)
+        const wasRequested = permissionsToRequest.includes(permission)
+
+        return {
+          permission,
+          granted: status === PermissionStatus.GRANTED,
+          permanent: status === PermissionStatus.GRANTED && !wasRequested ? true : !response.sessionOnly
+        }
+      })
+
+      const allGranted = results.every(r => r.granted)
+
+      return {
+        allGranted,
+        results
+      }
+    } finally {
+      this.pendingBatchRequests.delete(requestId)
+    }
   }
 
   /**

@@ -14,7 +14,7 @@ interface LoadingState {
 /**
  * 权限状态
  */
-export type PermissionStatus = 'pending' | 'granted' | 'denied'
+export type PermissionStatus = 'pending' | 'granted' | 'denied' | 'permanently_denied'
 
 /**
  * 权限历史记录
@@ -106,6 +106,7 @@ interface PluginState {
   checkPermission: (pluginId: string, permission: string) => Promise<PermissionStatus>
   getPermissionStatus: (pluginId: string) => Promise<PluginPermissionState | null>
   revokePermission: (pluginId: string, permission: string) => Promise<boolean>
+  clearPermanentDeny: (pluginId: string, permission: string) => Promise<boolean>
   setCurrentPermissionRequest: (request: PermissionRequest | null) => void
   clearPermissionRequests: () => void
 
@@ -305,14 +306,14 @@ export const usePluginStore = create<PluginState>((set, get) => ({
       })
 
       if (response.success) {
-        // 更新缓存
+        // 更新缓存为 pending 状态
         const state = get().pluginPermissions.get(pluginId)
         if (state) {
           const updatedState = {
             ...state,
             permissions: {
               ...state.permissions,
-              [permission]: 'denied' as PermissionStatus
+              [permission]: 'pending' as PermissionStatus
             }
           }
           const pluginPermissions = new Map(get().pluginPermissions)
@@ -324,6 +325,38 @@ export const usePluginStore = create<PluginState>((set, get) => ({
       return response.success
     } catch (error) {
       console.error('撤销权限失败:', error)
+      return false
+    }
+  },
+
+  // 清除永久拒绝状态
+  clearPermanentDeny: async (pluginId, permission) => {
+    try {
+      const response = await window.electronAPI.permission.clearPermanentDeny({
+        pluginId,
+        permission
+      })
+
+      if (response.success) {
+        // 更新缓存
+        const state = get().pluginPermissions.get(pluginId)
+        if (state) {
+          const updatedState = {
+            ...state,
+            permissions: {
+              ...state.permissions,
+              [permission]: 'pending' as PermissionStatus
+            }
+          }
+          const pluginPermissions = new Map(get().pluginPermissions)
+          pluginPermissions.set(pluginId, updatedState)
+          set({ pluginPermissions })
+        }
+      }
+
+      return response.success
+    } catch (error) {
+      console.error('清除永久拒绝失败:', error)
       return false
     }
   },

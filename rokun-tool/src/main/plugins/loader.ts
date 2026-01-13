@@ -406,6 +406,24 @@ export class PluginLoader {
           },
           has: (permission: Permission): boolean => {
             return this.permissionManager.checkPermission(metadata.id, permission) === 'granted'
+          },
+          checkPermissions: async (permissions: Permission[]) => {
+            return this.permissionManager.checkPermissions(metadata.id, permissions)
+          },
+          requestPermissions: async (
+            permissions: Permission[],
+            reason?: string,
+            context?: {
+              operation: string
+              target?: string
+            }
+          ) => {
+            return this.permissionManager.requestPermissions(
+              metadata.id,
+              permissions,
+              reason,
+              context
+            )
           }
         },
         progress: {

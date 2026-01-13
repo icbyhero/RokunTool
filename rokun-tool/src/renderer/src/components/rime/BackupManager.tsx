@@ -238,7 +238,7 @@ export function BackupManager({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Archive className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          <h2 className="text-lg font-semibold">配置备份</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">配置备份</h2>
           <Badge variant="secondary">{backups.length} 个备份</Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -281,13 +281,13 @@ export function BackupManager({
           {backups.map((backup) => (
             <Card
               key={backup.backupId}
-              className={backup.isPermanent ? 'border-yellow-200 bg-yellow-50' : ''}
+              className={backup.isPermanent ? 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20' : ''}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
                     <Archive
-                      className={`w-5 h-5 mt-0.5 ${backup.isPermanent ? 'text-yellow-600' : 'text-gray-600'}`}
+                      className={`w-5 h-5 mt-0.5 ${backup.isPermanent ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`}
                     />
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">

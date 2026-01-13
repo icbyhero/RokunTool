@@ -21,7 +21,9 @@ import {
   Shield,
   AlertTriangle,
   Clock,
-  X
+  X,
+  RotateCcw,
+  Ban
 } from 'lucide-react'
 
 export function PluginDetail() {
@@ -52,7 +54,7 @@ export function PluginDetail() {
   if (!plugin) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <AlertCircle className="h-16 w-16 text-gray-400 mb-4" />
+        <AlertCircle className="h-16 w-16 text-gray-400 dark:text-gray-600 mb-4" />
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">插件未找到</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-4">您要查看的插件不存在或已被卸载</p>
         <Button onClick={() => setCurrentPage('plugins')}>
@@ -314,7 +316,7 @@ function OverviewTab({
 }
 
 function PermissionsTab({ plugin }: { plugin: any }) {
-  const { getPermissionStatus, revokePermission, pluginPermissions } = usePluginStore()
+  const { getPermissionStatus, revokePermission, clearPermanentDeny, pluginPermissions } = usePluginStore()
   const [loading, setLoading] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -477,6 +479,15 @@ function PermissionsTab({ plugin }: { plugin: any }) {
       )
     }
 
+    if (status === 'permanently_denied') {
+      return (
+        <Badge variant="destructive" className="bg-orange-600 hover:bg-orange-700">
+          <Ban className="w-3 h-3 mr-1" />
+          永久拒绝
+        </Badge>
+      )
+    }
+
     return (
       <Badge variant="destructive">
         <XCircle className="w-3 h-3 mr-1" />
@@ -488,6 +499,17 @@ function PermissionsTab({ plugin }: { plugin: any }) {
   const handleRevoke = async (permission: string) => {
     if (window.confirm(`确定要撤销 ${permission} 权限吗?`)) {
       await revokePermission(plugin.id, permission)
+    }
+  }
+
+  const handleReAsk = async (permission: string) => {
+    if (window.confirm(`确定要重新询问 ${permission} 权限吗?`)) {
+      const success = await clearPermanentDeny(plugin.id, permission)
+      if (success) {
+        // 清除成功,权限状态将变为 pending
+        // 下次插件请求该权限时会重新弹出对话框
+        alert('已清除永久拒绝状态。下次插件使用此权限时将重新询问。')
+      }
     }
   }
 
@@ -607,14 +629,35 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                           <div className="flex items-center gap-2">
                             {getStatusBadge(permission)}
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleRevoke(permission)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
                             >
-                              <X className="w-3 h-3 mr-1" />
-                              撤销
+                              <X className="w-3.5 h-3.5 mr-1.5" />
+                              撤销授权
                             </Button>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              撤销后,下次插件使用时将重新询问
+                            </span>
+                          </div>
+                        )}
+
+                        {status === 'permanently_denied' && (
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(permission)}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReAsk(permission)}
+                              className="border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                              重新询问
+                            </Button>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              权限已被永久拒绝,可以重新询问
+                            </span>
                           </div>
                         )}
 
@@ -622,7 +665,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                           <div className="flex items-center gap-2">
                             {getStatusBadge(permission)}
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              拒绝后插件将无法使用此权限
+                              已在本次会话拒绝,重启应用后可重新询问
                             </span>
                           </div>
                         )}
@@ -644,7 +687,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                         <AlertTriangle
                           className={`w-5 h-5 ${
                             info.category === 'basic'
-                              ? 'text-gray-400'
+                              ? 'text-gray-400 dark:text-gray-600'
                               : 'text-yellow-600 dark:text-yellow-400'
                           }`}
                         />

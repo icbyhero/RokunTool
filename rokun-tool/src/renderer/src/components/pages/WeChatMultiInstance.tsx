@@ -269,9 +269,9 @@ export function WeChatMultiInstance() {
   if (!isInstalled) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
-        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">微信未安装</h2>
-        <p className="text-gray-600 mb-4">请先安装微信应用后再使用此功能</p>
+        <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mb-4" />
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">微信未安装</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">请先安装微信应用后再使用此功能</p>
         <Button onClick={checkWeChatStatus}>重新检测</Button>
       </div>
     )
@@ -336,7 +336,7 @@ export function WeChatMultiInstance() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8">
-                <div className="text-gray-500 mb-4">暂无分身实例</div>
+                <div className="text-gray-500 dark:text-gray-400 mb-4">暂无分身实例</div>
                 <Button onClick={createInstance}>创建第一个分身</Button>
               </div>
             </CardContent>
@@ -362,17 +362,17 @@ export function WeChatMultiInstance() {
                       </CardTitle>
                       <CardDescription>
                         <div className="space-y-1">
-                          <div>创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}</div>
+                          <div className="text-gray-700 dark:text-gray-300">创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}</div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">分身版本:</span>
-                            <span className={needsUpdate ? 'text-orange-600 font-medium' : ''}>
+                            <span className="font-medium text-gray-900 dark:text-white">分身版本:</span>
+                            <span className={needsUpdate ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
                               {versionLabel}
                             </span>
                             {weChatVersion && (
                               <>
-                                <span className="text-gray-400">|</span>
-                                <span className="font-medium">微信版本:</span>
-                                <span>{weChatVersion}</span>
+                                <span className="text-gray-400 dark:text-gray-600">|</span>
+                                <span className="font-medium text-gray-900 dark:text-white">微信版本:</span>
+                                <span className="text-gray-700 dark:text-gray-300">{weChatVersion}</span>
                               </>
                             )}
                           </div>

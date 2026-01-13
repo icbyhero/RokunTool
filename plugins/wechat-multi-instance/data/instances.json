@@ -1,4 +1,15 @@
 {
   "wechatVersion": "4.1.6",
-  "instances": []
+  "instances": [
+    {
+      "id": "instance-1768342224003",
+      "name": "WeChat3",
+      "path": "/Applications/WeChat3.app",
+      "realPath": "/Users/rokun/Applications/WeChat3.app",
+      "bundleId": "com.tencent.xinWeChat3",
+      "createdAt": "2026-01-13T22:10:24.003Z",
+      "wechatVersion": "4.1.6",
+      "rebuiltAt": null
+    }
+  ]
 }

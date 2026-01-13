@@ -535,6 +535,56 @@ export class IpcHandlers {
       }
     })
 
+    // 清除永久拒绝状态
+    ipcMain.handle('permission:clearPermanentDeny', async (_event, request: any) => {
+      try {
+        await this.permissionManager.clearPermanentDeny(
+          request.pluginId,
+          request.permission
+        )
+        return { success: true }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
+    // 批量检查权限
+    ipcMain.handle('permission:checkPermissions', async (_event, request: any) => {
+      try {
+        const result = await this.permissionManager.checkPermissions(
+          request.pluginId,
+          request.permissions
+        )
+        return { success: true, ...result }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
+    // 批量请求权限
+    ipcMain.handle('permission:requestPermissions', async (_event, request: any) => {
+      try {
+        const result = await this.permissionManager.requestPermissions(
+          request.pluginId,
+          request.permissions,
+          request.reason,
+          request.context
+        )
+        return { success: true, ...result }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
     // 注意: permission:response 事件由 PermissionManager 自己处理
     // 不需要在这里添加监听器,避免与 PermissionManager.waitForResponse() 冲突
   }
@@ -572,5 +622,8 @@ export class IpcHandlers {
     ipcMain.removeHandler('permission:check')
     ipcMain.removeHandler('permission:getStatus')
     ipcMain.removeHandler('permission:revoke')
+    ipcMain.removeHandler('permission:clearPermanentDeny')
+    ipcMain.removeHandler('permission:checkPermissions')
+    ipcMain.removeHandler('permission:requestPermissions')
   }
 }

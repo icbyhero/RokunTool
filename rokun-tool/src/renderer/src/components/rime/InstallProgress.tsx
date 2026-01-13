@@ -110,18 +110,18 @@ export function InstallProgress({
   }
 
   return (
-    <Card className="border-blue-200 bg-blue-50">
+    <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
       <CardContent className="pt-6">
         <div className="space-y-4">
           {/* 标题栏 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {status === 'running' && <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />}
+              {status === 'running' && <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />}
               {status === 'completed' && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
               {status === 'error' && <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
               <div>
-                <p className="font-medium text-blue-900">{getOperationTitle()}</p>
-                <p className="text-sm text-blue-700">{currentStep}</p>
+                <p className="font-medium text-blue-900 dark:text-blue-100">{getOperationTitle()}</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">{currentStep}</p>
               </div>
             </div>
             {status === 'running' && (
@@ -135,21 +135,21 @@ export function InstallProgress({
           {/* 进度条 */}
           {status === 'running' && (
             <div className="space-y-2">
-              <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                  className="h-full bg-blue-600 dark:bg-blue-400 transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-xs text-blue-700 text-right">{Math.round(progress)}%</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300 text-right">{Math.round(progress)}%</p>
             </div>
           )}
 
           {/* 日志输出 */}
-          <div className="h-40 w-full rounded-md border border-blue-200 bg-white p-3 overflow-y-auto">
+          <div className="h-40 w-full rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 p-3 overflow-y-auto">
             <div className="space-y-1">
               {logs.map((log, index) => (
-                <p key={index} className="text-xs font-mono text-gray-700">
+                <p key={index} className="text-xs font-mono text-gray-700 dark:text-gray-300">
                   {log}
                 </p>
               ))}

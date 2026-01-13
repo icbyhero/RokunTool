@@ -132,8 +132,8 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
       {/* 标题栏 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">已安装配方</h2>
-          <p className="text-gray-600 mt-1">管理已安装的 Plum 配方</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">已安装配方</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">管理已安装的 Plum 配方</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadInstalledRecipes} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
@@ -143,9 +143,9 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
 
       {/* 错误提示 */}
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-red-700">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
