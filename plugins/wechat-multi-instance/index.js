@@ -127,22 +127,30 @@ class WeChatMultiInstancePlugin {
   }
 
   async createInstance() {
-    const isInstalled = await this.checkWeChatInstalled()
+    const totalSteps = 7
 
-    if (!isInstalled) {
-      throw new Error('微信未安装，请先安装微信应用')
-    }
-
-    const instanceNumber = this.getNextInstanceNumber()
-    const instanceName = `WeChat${instanceNumber}`
-    const instancePath = join(INSTANCES_DIR, `${instanceName}.app`)
-    const symlinkPath = join(SYSTEM_APPS_DIR, `${instanceName}.app`)
-    const bundleId = `com.tencent.xinWeChat${instanceNumber}`
-
-    this.context.logger.info(`创建分身: ${instanceName}`)
+    // 1. 开始进度报告
+    this.context.api.progress.start('创建分身', totalSteps)
 
     try {
-      // 请求文件写入权限
+      // 2. 检查微信安装
+      this.context.api.progress.update(1, '检查微信安装', '正在检查微信是否已安装...')
+      const isInstalled = await this.checkWeChatInstalled()
+
+      if (!isInstalled) {
+        throw new Error('微信未安装，请先安装微信应用')
+      }
+
+      const instanceNumber = this.getNextInstanceNumber()
+      const instanceName = `WeChat${instanceNumber}`
+      const instancePath = join(INSTANCES_DIR, `${instanceName}.app`)
+      const symlinkPath = join(SYSTEM_APPS_DIR, `${instanceName}.app`)
+      const bundleId = `com.tencent.xinWeChat${instanceNumber}`
+
+      this.context.logger.info(`创建分身: ${instanceName}`)
+
+      // 3. 请求文件写入权限
+      this.context.api.progress.update(2, '请求权限', '请求文件写入权限...')
       const hasPermission = await this.context.api.permission.request('fs:write', {
         reason: '创建微信分身需要复制和修改文件',
         context: {
@@ -155,10 +163,16 @@ class WeChatMultiInstancePlugin {
         throw new Error('未授予文件写入权限，无法创建微信分身')
       }
 
+      // 4. 复制应用
+      this.context.api.progress.update(3, '复制微信应用', `正在复制到 ${instancePath}...`)
       await this.copyWeChatApp(instancePath)
+
+      // 5. 修改 Bundle ID
+      this.context.api.progress.update(4, '修改应用标识', `修改 Bundle ID 为 ${bundleId}...`)
       await this.modifyBundleId(instancePath, bundleId, instanceName)
 
-      // 请求进程执行权限(用于签名)
+      // 6. 请求进程执行权限(用于签名)
+      this.context.api.progress.update(5, '请求权限', '请求进程执行权限...')
       const hasExecPermission = await this.context.api.permission.request('process:exec', {
         reason: '签名微信分身需要执行系统命令',
         context: {
@@ -171,9 +185,12 @@ class WeChatMultiInstancePlugin {
         throw new Error('未授予进程执行权限，无法签名微信分身')
       }
 
+      // 7. 签名应用
+      this.context.api.progress.update(6, '签名应用', '正在对应用进行代码签名...')
       await this.signApp(instancePath)
 
-      // 修改微信显示名称为中文名+数字
+      // 8. 修改微信显示名称为中文名+数字
+      this.context.api.progress.update(7, '修改显示名称', `设置为: 微信${instanceNumber}`)
       await this.modifyWeChatDisplayName(instancePath, instanceNumber)
 
       // 在 /Applications 创建符号链接
@@ -205,9 +222,13 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`分身创建成功: ${instanceName}`)
 
+      // 9. 完成进度报告
+      this.context.api.progress.complete('success')
+
       return instance
     } catch (error) {
       this.context.logger.error('创建分身失败:', error)
+      this.context.api.progress.complete('error', error.message)
       throw error
     }
   }
@@ -426,6 +447,8 @@ class WeChatMultiInstancePlugin {
    * 用于微信版本更新后,基于新版本重建分身,保留配置
    */
   async rebuildInstance(instanceId) {
+    const totalSteps = 9
+
     const instance = this.instances.get(instanceId)
 
     if (!instance) {
@@ -434,14 +457,19 @@ class WeChatMultiInstancePlugin {
 
     this.context.logger.info(`重建实例: ${instance.name}`)
 
+    // 1. 开始进度报告
+    this.context.api.progress.start(`更新版本 - ${instance.name}`, totalSteps)
+
     try {
-      // 检查微信是否已安装
+      // 2. 检查微信安装
+      this.context.api.progress.update(1, '检查微信安装', '正在检查微信是否已安装...')
       const isInstalled = await this.checkWeChatInstalled()
       if (!isInstalled) {
         throw new Error('微信未安装，无法重建分身')
       }
 
-      // 请求文件写入权限
+      // 3. 请求文件写入权限
+      this.context.api.progress.update(2, '请求权限', '请求文件写入权限...')
       const hasPermission = await this.context.api.permission.request('fs:write', {
         reason: '重建微信分身需要删除旧文件并创建新文件',
         context: {
@@ -454,8 +482,8 @@ class WeChatMultiInstancePlugin {
         throw new Error('未授予文件写入权限，无法重建微信分身')
       }
 
-      // 1. 删除旧分身(但不删除配置)
-      this.context.logger.info('删除旧分身文件...')
+      // 4. 删除旧分身(但不删除配置)
+      this.context.api.progress.update(3, '删除旧文件', '正在删除旧的分身文件...')
 
       // 删除符号链接
       if (instance.path !== instance.realPath) {
@@ -477,7 +505,8 @@ class WeChatMultiInstancePlugin {
         this.context.logger.warn('删除旧实际文件时出现警告:', error.message)
       }
 
-      // 请求进程执行权限
+      // 5. 请求进程执行权限
+      this.context.api.progress.update(4, '请求权限', '请求进程执行权限...')
       const hasExecPermission = await this.context.api.permission.request('process:exec', {
         reason: '重建微信分身需要执行系统命令进行复制和签名',
         context: {
@@ -490,7 +519,7 @@ class WeChatMultiInstancePlugin {
         throw new Error('未授予进程执行权限，无法重建微信分身')
       }
 
-      // 2. 创建新分身(使用相同的实例编号)
+      // 6. 创建新分身(使用相同的实例编号)
       const instanceNumber = parseInt(instance.name.replace('WeChat', ''))
       const instanceName = instance.name
       const instancePath = join(INSTANCES_DIR, `${instanceName}.app`)
@@ -499,16 +528,20 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`创建新分身: ${instanceName}`)
 
-      // 复制应用
+      // 7. 复制应用
+      this.context.api.progress.update(5, '复制微信应用', `正在复制到 ${instancePath}...`)
       await this.copyWeChatApp(instancePath)
 
-      // 修改 Bundle ID
+      // 8. 修改 Bundle ID
+      this.context.api.progress.update(6, '修改应用标识', `修改 Bundle ID 为 ${bundleId}...`)
       await this.modifyBundleId(instancePath, bundleId, instanceName)
 
-      // 修改显示名称
+      // 9. 修改显示名称
+      this.context.api.progress.update(7, '修改显示名称', `设置为: 微信${instanceNumber}`)
       await this.modifyWeChatDisplayName(instancePath, instanceNumber)
 
-      // 签名
+      // 10. 签名
+      this.context.api.progress.update(8, '签名应用', '正在对应用进行代码签名...')
       await this.signApp(instancePath)
 
       // 创建符号链接
@@ -521,7 +554,8 @@ class WeChatMultiInstancePlugin {
         this.context.logger.warn('创建符号链接失败(分身仍可用):', linkError.message)
       }
 
-      // 3. 更新实例配置(保留原有的 id 和 createdAt)
+      // 11. 更新实例配置(保留原有的 id 和 createdAt)
+      this.context.api.progress.update(9, '保存配置', '正在保存配置...')
       instance.path = symlinkPath
       instance.realPath = instancePath
       instance.wechatVersion = await this.getWeChatVersion() // 更新微信版本
@@ -531,12 +565,16 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`分身重建成功: ${instanceName}`)
 
+      // 12. 完成进度报告
+      this.context.api.progress.complete('success')
+
       return {
         ...instance,
         wasRebuilt: true
       }
     } catch (error) {
       this.context.logger.error('重建分身失败:', error)
+      this.context.api.progress.complete('error', error.message)
       throw error
     }
   }
@@ -680,6 +718,54 @@ class WeChatMultiInstancePlugin {
   getWeChatVersionChange() {
     return this.wechatVersionChanged || null
   }
+
+  /**
+   * 批量重建所有分身实例
+   * 用于微信版本更新后,一次性更新所有分身
+   */
+  async rebuildAllInstances() {
+    const instances = Array.from(this.instances.values())
+    const totalInstances = instances.length
+
+    if (totalInstances === 0) {
+      throw new Error('没有可更新的分身')
+    }
+
+    this.context.logger.info(`批量重建 ${totalInstances} 个分身`)
+
+    const results = {
+      total: totalInstances,
+      success: 0,
+      failed: 0,
+      errors: []
+    }
+
+    for (let i = 0; i < instances.length; i++) {
+      const instance = instances[i]
+      const stepNumber = i + 1
+
+      try {
+        this.context.logger.info(`[${stepNumber}/${totalInstances}] 重建 ${instance.name}`)
+
+        // 重建单个分身
+        await this.rebuildInstance(instance.id)
+
+        results.success++
+        this.context.logger.info(`[${stepNumber}/${totalInstances}] ${instance.name} 重建成功`)
+      } catch (error) {
+        results.failed++
+        results.errors.push({
+          instance: instance.name,
+          error: error.message
+        })
+        this.context.logger.error(`[${stepNumber}/${totalInstances}] ${instance.name} 重建失败:`, error)
+      }
+    }
+
+    this.context.logger.info(`批量重建完成: 成功 ${results.success}, 失败 ${results.failed}`)
+
+    return results
+  }
 }
 
 // 创建插件实例的单例
@@ -757,6 +843,12 @@ module.exports = {
       throw new Error('Plugin not loaded')
     }
     return pluginInstance.getWeChatVersionChange()
+  },
+  rebuildAllInstances: (_context) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.rebuildAllInstances()
   },
   // 导出静态工具方法,供其他插件使用
   isWeChatInstance: WeChatMultiInstancePlugin.isWeChatInstance,

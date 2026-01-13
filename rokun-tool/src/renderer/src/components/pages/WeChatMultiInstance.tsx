@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
+import { ProgressDialog } from '../ui/ProgressDialog'
 import { Trash2, Plus, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface Instance {
@@ -21,9 +22,58 @@ export function WeChatMultiInstance() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // 进度对话框状态
+  const [progressDialog, setProgressDialog] = useState({
+    isOpen: false,
+    title: '',
+    currentStep: '',
+    progress: 0,
+    status: 'running' as 'running' | 'success' | 'error',
+    error: '',
+    logs: [] as string[]
+  })
+
+  const closeProgressDialog = () => {
+    setProgressDialog(prev => ({ ...prev, isOpen: false }))
+  }
+
   useEffect(() => {
     checkWeChatStatus()
     loadInstances()
+
+    // 监听操作进度事件
+    const handleOperationProgress = (_event: any, data: any) => {
+      if (data.pluginId === 'rokun-wechat-multi-instance') {
+        const progressPercent = data.totalSteps > 0
+          ? (data.currentStep / data.totalSteps) * 100
+          : 0
+
+        // 只有在运行状态时才自动打开对话框
+        // 完成后保持显示,等待用户手动关闭
+        setProgressDialog(prev => ({
+          isOpen: data.status === 'running' ? true : prev.isOpen,
+          title: data.operation,
+          currentStep: data.stepName,
+          progress: progressPercent,
+          status: data.status,
+          error: data.error || '',
+          logs: data.logs || []
+        }))
+
+        // 如果操作完成,刷新实例列表
+        if (data.status === 'success' || data.status === 'error') {
+          setTimeout(() => {
+            loadInstances()
+          }, 500)
+        }
+      }
+    }
+
+    window.electronAPI.plugin.onOperationProgress(handleOperationProgress)
+
+    return () => {
+      window.electronAPI.plugin.removeListener('plugin:operation-progress', handleOperationProgress)
+    }
   }, [])
 
   const checkWeChatStatus = async () => {
@@ -211,7 +261,7 @@ export function WeChatMultiInstance() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">加载中...</div>
+        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
       </div>
     )
   }
@@ -229,6 +279,18 @@ export function WeChatMultiInstance() {
 
   return (
     <div className="space-y-6">
+      {/* 进度对话框 */}
+      <ProgressDialog
+        isOpen={progressDialog.isOpen}
+        title={progressDialog.title}
+        currentStep={progressDialog.currentStep}
+        progress={progressDialog.progress}
+        status={progressDialog.status}
+        error={progressDialog.error}
+        logs={progressDialog.logs}
+        onClose={closeProgressDialog}
+      />
+
       {/* 顶部操作栏 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -315,7 +377,7 @@ export function WeChatMultiInstance() {
                             )}
                           </div>
                           {instance.rebuiltAt && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               更新于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
                             </div>
                           )}
@@ -345,7 +407,7 @@ export function WeChatMultiInstance() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 text-sm text-gray-600">
+                  <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                     <div>
                       <span className="font-medium">Bundle ID:</span> {instance.bundleId}
                     </div>
@@ -358,7 +420,7 @@ export function WeChatMultiInstance() {
                         当前微信版本为 {weChatVersion}。建议更新以避免兼容性问题。
                       </div>
                     )}
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       💡 提示: 分身是独立应用,可以直接从启动台启动
                     </div>
                   </div>

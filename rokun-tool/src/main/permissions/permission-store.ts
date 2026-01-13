@@ -18,14 +18,21 @@ interface PermissionStoreData {
 }
 
 export class PermissionStore {
-  private storeFile: string
+  private storeFile: string | null = null
   private cache: Record<string, PluginPermissionState> = {}
   private initialized = false
 
+  private getStoreFile(): string {
+    if (!this.storeFile) {
+      const userData = app.getPath('userData')
+      const permissionsDir = join(userData, 'permissions')
+      this.storeFile = join(permissionsDir, 'state.json')
+    }
+    return this.storeFile
+  }
+
   constructor() {
-    const userData = app.getPath('userData')
-    const permissionsDir = join(userData, 'permissions')
-    this.storeFile = join(permissionsDir, 'state.json')
+    // Don't call app.getPath() here - do it lazily in getStoreFile()
   }
 
   /**
@@ -52,7 +59,7 @@ export class PermissionStore {
    */
   private async load(): Promise<void> {
     try {
-      const data = await readFile(this.storeFile, 'utf-8')
+      const data = await readFile(this.getStoreFile(), 'utf-8')
       const storeData: PermissionStoreData = JSON.parse(data)
 
       // 验证版本
@@ -76,7 +83,7 @@ export class PermissionStore {
    */
   private async save(): Promise<void> {
     try {
-      const dir = join(this.storeFile, '..')
+      const dir = join(this.getStoreFile(), '..')
       await mkdir(dir, { recursive: true })
 
       const storeData: PermissionStoreData = {
@@ -84,7 +91,7 @@ export class PermissionStore {
         plugins: this.cache
       }
 
-      await writeFile(this.storeFile, JSON.stringify(storeData, null, 2))
+      await writeFile(this.getStoreFile(), JSON.stringify(storeData, null, 2))
     } catch (error) {
       console.error('Failed to save permission store:', error)
       throw error

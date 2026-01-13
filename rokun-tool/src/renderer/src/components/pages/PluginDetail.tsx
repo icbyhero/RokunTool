@@ -338,7 +338,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
-          <Shield className="h-12 w-12 text-green-600 mb-4" />
+          <Shield className="h-12 w-12 text-green-600 dark:text-green-400 mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">无需权限</h3>
           <p className="text-gray-600 dark:text-gray-400">此插件不需要任何特殊权限</p>
         </CardContent>
@@ -537,9 +537,9 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                   >
                     <div className="mt-0.5">
                       {entry.status === 'granted' ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-red-600" />
+                        <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -556,7 +556,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                           {entry.context.target && ` (${entry.context.target})`}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {new Date(entry.timestamp).toLocaleString('zh-CN')}
                       </p>
                     </div>
@@ -621,7 +621,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                         {status === 'denied' && (
                           <div className="flex items-center gap-2">
                             {getStatusBadge(permission)}
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               拒绝后插件将无法使用此权限
                             </span>
                           </div>
@@ -630,7 +630,7 @@ function PermissionsTab({ plugin }: { plugin: any }) {
                         {!status && (
                           <div className="flex items-center gap-2">
                             {getStatusBadge(permission)}
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               {info.category === 'basic'
                                 ? '将在插件首次使用时自动授予'
                                 : '将在插件首次使用时询问'}
@@ -806,13 +806,13 @@ function LogsTab({
   const getLevelIcon = (level: string) => {
     switch (level) {
       case 'error':
-        return <XCircle className="h-4 w-4 text-red-600" />
+        return <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
       case 'warn':
-        return <AlertCircle className="h-4 w-4 text-yellow-600" />
+        return <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
       case 'info':
-        return <Info className="h-4 w-4 text-blue-600" />
+        return <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
       default:
-        return <CheckCircle className="h-4 w-4 text-gray-600" />
+        return <CheckCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
     }
   }
 

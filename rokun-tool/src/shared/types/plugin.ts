@@ -207,6 +207,31 @@ export interface PluginAPI {
     check(permission: PluginPermission): Promise<PermissionStatus>
     has(permission: PluginPermission): boolean
   }
+
+  /** 进度反馈 API */
+  progress: {
+    /**
+     * 报告操作开始
+     * @param operation 操作名称 (如 "创建分身", "更新版本")
+     * @param totalSteps 总步骤数 (可选,用于计算进度百分比)
+     */
+    start(operation: string, totalSteps?: number): void
+
+    /**
+     * 报告操作进度
+     * @param currentStep 当前步骤 (从1开始)
+     * @param stepName 当前步骤名称 (如 "复制微信应用", "修改Bundle ID")
+     * @param details 详细信息 (可选,插件可以提供额外的日志信息)
+     */
+    update(currentStep: number, stepName?: string, details?: string): void
+
+    /**
+     * 报告操作完成
+     * @param result 操作结果 (成功/失败)
+     * @param error 错误信息 (如果失败)
+     */
+    complete(result: 'success' | 'error', error?: string): void
+  }
 }
 
 /**

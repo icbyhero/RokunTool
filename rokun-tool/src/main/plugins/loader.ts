@@ -407,13 +407,106 @@ export class PluginLoader {
           has: (permission: Permission): boolean => {
             return this.permissionManager.checkPermission(metadata.id, permission) === 'granted'
           }
+        },
+        progress: {
+          start: (operation: string, totalSteps?: number) => {
+            this.sendOperationProgressEvent(metadata.id, {
+              operation,
+              currentStep: 0,
+              totalSteps: totalSteps || 0,
+              stepName: '',
+              status: 'running',
+              logs: []
+            })
+          },
+          update: (currentStep: number, stepName?: string, details?: string) => {
+            // 获取当前进度状态并更新
+            const currentState = this.getCurrentProgressState(metadata.id)
+            if (currentState) {
+              const logs = [...(currentState.logs || [])]
+              if (details) {
+                logs.push(`[${new Date().toLocaleTimeString()}] ${details}`)
+              }
+
+              this.sendOperationProgressEvent(metadata.id, {
+                operation: currentState.operation,
+                currentStep,
+                totalSteps: currentState.totalSteps,
+                stepName: stepName || currentState.stepName || '',
+                status: 'running',
+                logs
+              })
+            }
+          },
+          complete: (result: 'success' | 'error', error?: string) => {
+            const currentState = this.getCurrentProgressState(metadata.id)
+            if (currentState) {
+              this.sendOperationProgressEvent(metadata.id, {
+                operation: currentState.operation,
+                currentStep: currentState.currentStep,
+                totalSteps: currentState.totalSteps,
+                stepName: currentState.stepName,
+                status: result,
+                error,
+                logs: currentState.logs || []
+              })
+            }
+            // 清除状态
+            this.clearProgressState(metadata.id)
+          }
         }
       }
     }
   }
 
+  private progressStates: Map<string, {
+    operation: string
+    currentStep: number
+    totalSteps: number
+    stepName: string
+    logs: string[]
+  }> = new Map()
+
+  private getCurrentProgressState(pluginId: string) {
+    return this.progressStates.get(pluginId)
+  }
+
+  private clearProgressState(pluginId: string): void {
+    this.progressStates.delete(pluginId)
+  }
+
+  private sendOperationProgressEvent(pluginId: string, data: {
+    operation: string
+    currentStep: number
+    totalSteps: number
+    stepName: string
+    status: 'running' | 'success' | 'error'
+    error?: string
+    logs: string[]
+  }): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('plugin:operation-progress', {
+        pluginId,
+        ...data,
+        timestamp: Date.now()
+      })
+
+      // 保存状态用于后续更新
+      if (data.status === 'running') {
+        this.progressStates.set(pluginId, {
+          operation: data.operation,
+          currentStep: data.currentStep,
+          totalSteps: data.totalSteps,
+          stepName: data.stepName,
+          logs: data.logs
+        })
+      }
+    }
+  }
+
   private checkPermission(pluginId: string, permission: Permission): void {
-    if (!this.serviceManager.permissions.hasPermission(pluginId, permission)) {
+    const status = this.permissionManager.checkPermission(pluginId, permission)
+    if (status !== 'granted') {
       throw new Error('Permission denied: ' + permission)
     }
   }

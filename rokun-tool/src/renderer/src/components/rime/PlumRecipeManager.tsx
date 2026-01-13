@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Input } from '../ui/Input'
 import { Badge } from '../ui/Badge'
 import { InstallProgress } from './InstallProgress'
+import type { RecipeCategory, PlumRecipe } from '../../types/rime'
+import { RECIPE_CATEGORIES } from '../../types/rime'
 import {
   Search,
   Download,
@@ -13,17 +15,26 @@ import {
   AlertCircle,
   Loader2,
   Package,
-  Rocket
+  Rocket,
+  Settings,
+  Book,
+  Keyboard,
+  Globe,
+  Edit,
+  Smile,
+  Wrench
 } from 'lucide-react'
 
-export interface PlumRecipe {
-  id: string
-  name: string
-  description: string
-  recipe: string // 例如: "iDvel/rime-ice:others/recipes/full"
-  installed: boolean
-  version?: string
-  size?: string
+// 图标映射
+const ICON_MAP: Record<RecipeCategory, React.ComponentType<{ className?: string }>> = {
+  basic: Settings,
+  vocabulary: Book,
+  input_method: Keyboard,
+  double_pinyin: Keyboard,
+  dialect: Globe,
+  stroke: Edit,
+  symbol: Smile,
+  tool: Wrench
 }
 
 interface PlumRecipeManagerProps {
@@ -46,6 +57,7 @@ export function PlumRecipeManager({
   const [recipes, setRecipes] = useState<PlumRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | 'all'>('all') // 新增: 选中的分类
   const [error, setError] = useState<string | null>(null)
   const [operatingRecipe, setOperatingRecipe] = useState<string | null>(null)
   const [deployNeeded, setDeployNeeded] = useState(false)  // 新增: 是否需要部署
@@ -77,6 +89,7 @@ export function PlumRecipeManager({
         setError(result.error || '加载配方列表失败')
       }
     } catch (error) {
+      console.error('[PlumRecipeManager] loadRecipes error:', error)
       setError('加载配方列表失败: ' + (error as Error).message)
     } finally {
       setLoading(false)
@@ -252,15 +265,24 @@ export function PlumRecipeManager({
     }
   }
 
-  const filteredRecipes = recipes.filter((recipe) =>
-    recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredRecipes = recipes.filter((recipe) => {
+    // 分类筛选
+    if (selectedCategory !== 'all' && recipe.category !== selectedCategory) {
+      return false
+    }
+
+    // 搜索筛选
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      recipe.name.toLowerCase().includes(searchLower) ||
+      recipe.description.toLowerCase().includes(searchLower)
+    )
+  })
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="flex items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>加载配方列表...</span>
         </div>
@@ -270,6 +292,42 @@ export function PlumRecipeManager({
 
   return (
     <div className="space-y-4">
+      {/* 分类标签页 */}
+      <div className="flex items-center gap-2 flex-wrap border-b pb-2">
+        <Button
+          variant={selectedCategory === 'all' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSelectedCategory('all')}
+          className="flex items-center gap-2"
+        >
+          <Package className="w-4 h-4" />
+          全部配方
+          <Badge variant="secondary" className="ml-1">
+            {recipes.length}
+          </Badge>
+        </Button>
+        {Object.values(RECIPE_CATEGORIES).map((category) => {
+          const IconComponent = ICON_MAP[category.id]
+          const count = recipes.filter(r => r.category === category.id).length
+          return (
+            <Button
+              key={category.id}
+              variant={selectedCategory === category.id ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSelectedCategory(category.id)}
+              className="flex items-center gap-2"
+              title={category.description}
+            >
+              <IconComponent className="w-4 h-4" />
+              {category.name}
+              <Badge variant="secondary" className="ml-1">
+                {count}
+              </Badge>
+            </Button>
+          )
+        })}
+      </div>
+
       {/* 工具栏 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-1">
@@ -325,7 +383,7 @@ export function PlumRecipeManager({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Rocket className="w-5 h-5 text-blue-600" />
+                <Rocket className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <div>
                   <p className="font-medium text-blue-900">配置已更改</p>
                   <p className="text-sm text-blue-700">配方已安装/更新,需要部署 Rime 才能生效</p>
@@ -372,11 +430,15 @@ export function PlumRecipeManager({
       {filteredRecipes.length === 0 ? (
         <Card>
           <CardContent className="py-12">
-            <div className="flex flex-col items-center justify-center text-gray-500">
+            <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
               <Package className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">暂无配方</p>
               <p className="text-sm mt-2">
-                {searchQuery ? '尝试其他搜索关键词' : '配方列表为空'}
+                {searchQuery
+                  ? '尝试其他搜索关键词'
+                  : selectedCategory !== 'all'
+                  ? `该分类下暂无配方`
+                  : '配方列表为空'}
               </p>
             </div>
           </CardContent>
@@ -396,8 +458,16 @@ export function PlumRecipeManager({
                     />
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-blue-500" />
+                        {/* 分类图标 */}
+                        {(() => {
+                          const CategoryIcon = ICON_MAP[recipe.category]
+                          return <CategoryIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        })()}
                         {recipe.name}
+                        {/* 分类标签 */}
+                        <Badge variant="outline" className="text-xs">
+                          {RECIPE_CATEGORIES[recipe.category].name}
+                        </Badge>
                         {recipe.installed && (
                           <Badge variant="success" className="ml-2">
                             <Check className="w-3 h-3 mr-1" />
@@ -406,7 +476,7 @@ export function PlumRecipeManager({
                         )}
                       </CardTitle>
                       <CardDescription className="mt-2">{recipe.description}</CardDescription>
-                      <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+                      <div className="flex items-center gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
                         <span>配方: <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">{recipe.recipe}</code></span>
                         {recipe.version && <span>版本: {recipe.version}</span>}
                         {recipe.size && <span>大小: {recipe.size}</span>}
@@ -421,14 +491,17 @@ export function PlumRecipeManager({
                       </Button>
                     ) : recipe.installed ? (
                       <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUpdate(recipe.recipe, recipe.name)}
-                        >
-                          <RefreshCw className="w-4 h-4 mr-1" />
-                          更新
-                        </Button>
+                        {/* 只有可更新的配方才显示更新按钮 */}
+                        {recipe.updatable !== false && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpdate(recipe.recipe, recipe.name)}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                            更新
+                          </Button>
+                        )}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -437,11 +510,15 @@ export function PlumRecipeManager({
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </>
-                    ) : (
+                    ) : recipe.recipe ? (
+                      /* 只有非本地配方才显示安装按钮 */
                       <Button size="sm" onClick={() => handleInstall(recipe.recipe, recipe.name)}>
                         <Download className="w-4 h-4 mr-1" />
                         安装
                       </Button>
+                    ) : (
+                      /* 本地方案显示提示 */
+                      <span className="text-xs text-gray-500 dark:text-gray-400">本地方案</span>
                     )}
                   </div>
                 </div>

@@ -1,6 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { PluginLoader } from './plugins/loader'
 import { PluginRegistry } from './plugins/registry'
@@ -8,11 +7,10 @@ import { IpcHandlers } from './ipc'
 import { ServiceManager } from './services'
 import { PermissionManager } from './permissions'
 
-// 初始化服务管理器
-const serviceManager = ServiceManager.getInstance()
-
-// 初始化权限管理器
-const permissionManager = new PermissionManager()
+// Don't initialize ServiceManager and PermissionManager at module level
+// They will be initialized after app.whenReady()
+let serviceManager: ServiceManager
+let permissionManager: PermissionManager
 
 // 初始化插件系统
 // 根据环境决定插件目录路径
@@ -30,8 +28,8 @@ console.log(`[Plugin System] __dirname: ${__dirname}`)
 console.log(`[Plugin System] Plugins directory: ${pluginsDir}`)
 
 const pluginRegistry = new PluginRegistry()
-const pluginLoader = new PluginLoader(pluginsDir, pluginRegistry, serviceManager, permissionManager)
-const ipcHandlers = new IpcHandlers(pluginRegistry, serviceManager, permissionManager)
+let pluginLoader: PluginLoader
+let ipcHandlers: IpcHandlers
 
 let mainWindow: BrowserWindow | null = null
 
@@ -54,7 +52,7 @@ function createWindow(): void {
   })
 
   // 开发模式下打开开发者工具
-  if (is.dev) {
+  if (isDev) {
     mainWindow!.webContents.openDevTools()
   }
 
@@ -89,7 +87,7 @@ function createWindow(): void {
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -100,12 +98,21 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // Initialize ServiceManager and PermissionManager after app is ready
+  serviceManager = ServiceManager.getInstance()
+  permissionManager = new PermissionManager()
+
+  // Initialize PluginLoader and IpcHandlers
+  pluginLoader = new PluginLoader(pluginsDir, pluginRegistry, serviceManager, permissionManager)
+  ipcHandlers = new IpcHandlers(pluginRegistry, serviceManager, permissionManager)
+
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // Note: electronApp.setAppUserModelId removed to avoid importing it before app is ready
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
+  // Dynamically import optimizer to avoid accessing electron.app before it's ready
+  const { optimizer } = await import('@electron-toolkit/utils')
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })

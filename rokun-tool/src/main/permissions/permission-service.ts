@@ -34,14 +34,28 @@ export interface PermissionGrant {
 }
 
 export class PermissionService {
-  private permissionsFile: string
+  private permissionsFile: string | null = null
   private grantedPermissions: Map<string, Permission[]> = new Map()
+  private loaded = false
+
+  private getPermissionsFile(): string {
+    if (!this.permissionsFile) {
+      const userData = app.getPath('userData')
+      const permissionsDir = join(userData, 'permissions')
+      this.permissionsFile = join(permissionsDir, 'granted.json')
+    }
+    return this.permissionsFile
+  }
 
   constructor() {
-    const userData = app.getPath('userData')
-    const permissionsDir = join(userData, 'permissions')
-    this.permissionsFile = join(permissionsDir, 'granted.json')
-    this.loadPermissions()
+    // Don't load permissions here - do it lazily
+  }
+
+  private ensureLoaded(): void {
+    if (!this.loaded) {
+      this.loadPermissions()
+      this.loaded = true
+    }
   }
 
   /**
@@ -50,7 +64,7 @@ export class PermissionService {
   private loadPermissions(): void {
     try {
       const { readFileSync } = require('fs')
-      const data = readFileSync(this.permissionsFile, 'utf-8')
+      const data = readFileSync(this.getPermissionsFile(), 'utf-8')
       const grants: PermissionGrant[] = JSON.parse(data)
 
       for (const grant of grants) {
@@ -67,7 +81,7 @@ export class PermissionService {
    */
   private async savePermissions(): Promise<void> {
     try {
-      const dir = join(this.permissionsFile, '..')
+      const dir = join(this.getPermissionsFile(), '..')
       await mkdir(dir, { recursive: true })
 
       const grants: PermissionGrant[] = Array.from(this.grantedPermissions.entries()).map(
@@ -78,7 +92,7 @@ export class PermissionService {
         })
       )
 
-      await writeFile(this.permissionsFile, JSON.stringify(grants, null, 2))
+      await writeFile(this.getPermissionsFile(), JSON.stringify(grants, null, 2))
     } catch (error) {
       console.error('Failed to save permissions:', error)
     }
@@ -88,6 +102,7 @@ export class PermissionService {
    * 检查插件是否有某个权限
    */
   hasPermission(pluginId: string, permission: Permission): boolean {
+    this.ensureLoaded()
     const permissions = this.grantedPermissions.get(pluginId)
     return permissions ? permissions.includes(permission) : false
   }
@@ -96,6 +111,7 @@ export class PermissionService {
    * 检查插件是否有多个权限
    */
   hasPermissions(pluginId: string, permissions: Permission[]): boolean {
+    this.ensureLoaded()
     return permissions.every((p) => this.hasPermission(pluginId, p))
   }
 
@@ -103,6 +119,7 @@ export class PermissionService {
    * 授予插件权限
    */
   async grantPermissions(pluginId: string, permissions: Permission[]): Promise<void> {
+    this.ensureLoaded()
     const existing = this.grantedPermissions.get(pluginId) || []
 
     for (const permission of permissions) {
@@ -119,6 +136,7 @@ export class PermissionService {
    * 撤销插件权限
    */
   async revokePermissions(pluginId: string, permissions: Permission[]): Promise<void> {
+    this.ensureLoaded()
     const existing = this.grantedPermissions.get(pluginId)
 
     if (!existing) {
@@ -140,6 +158,7 @@ export class PermissionService {
    * 获取插件的所有权限
    */
   getPluginPermissions(pluginId: string): Permission[] {
+    this.ensureLoaded()
     return this.grantedPermissions.get(pluginId) || []
   }
 
@@ -147,6 +166,7 @@ export class PermissionService {
    * 撤销插件的所有权限
    */
   async revokeAll(pluginId: string): Promise<void> {
+    this.ensureLoaded()
     this.grantedPermissions.delete(pluginId)
     await this.savePermissions()
   }
@@ -155,6 +175,7 @@ export class PermissionService {
    * 获取所有已授予权限的插件
    */
   getAllPlugins(): string[] {
+    this.ensureLoaded()
     return Array.from(this.grantedPermissions.keys())
   }
 }

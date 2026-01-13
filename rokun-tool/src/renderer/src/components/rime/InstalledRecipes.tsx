@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '../ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card'
 import { Badge } from '../ui/Badge'
+import type { PlumRecipe } from '../../types/rime'
 import {
   RefreshCw,
   Trash2,
@@ -18,17 +19,6 @@ import {
   Calendar,
   HardDrive
 } from 'lucide-react'
-
-export interface PlumRecipe {
-  id: string
-  name: string
-  description: string
-  recipe: string
-  installed: boolean
-  version?: string
-  size?: string
-  installedAt?: Date
-}
 
 interface InstalledRecipesProps {
   onDeployNeeded?: () => void
@@ -129,7 +119,7 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="flex items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>加载已安装配方...</span>
         </div>
@@ -167,7 +157,7 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
       {recipes.length === 0 ? (
         <Card>
           <CardContent className="py-12">
-            <div className="flex flex-col items-center justify-center text-gray-500">
+            <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
               <Package className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">暂无已安装配方</p>
               <p className="text-sm mt-2">前往"配方市场"安装您需要的配方</p>
@@ -182,7 +172,7 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Check className="w-5 h-5 text-blue-600" />
+                    <Check className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     <span className="font-medium text-blue-900">已安装 {recipes.length} 个配方</span>
                   </div>
                 </div>
@@ -206,7 +196,7 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
                         </Badge>
                       </CardTitle>
                       <CardDescription className="mt-2">{recipe.description}</CardDescription>
-                      <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+                      <div className="flex items-center gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
                         <span>配方: <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">{recipe.recipe}</code></span>
                         {recipe.version && <span>版本: {recipe.version}</span>}
                         {recipe.size && (
@@ -231,14 +221,16 @@ export function InstalledRecipes({ onDeployNeeded }: InstalledRecipesProps) {
                         </Button>
                       ) : (
                         <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpdate(recipe.recipe, recipe.name)}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-1" />
-                            更新
-                          </Button>
+                          {recipe.updatable !== false && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUpdate(recipe.recipe, recipe.name)}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              更新
+                            </Button>
+                          )}
                           <Button
                             variant="destructive"
                             size="sm"

@@ -5,7 +5,7 @@
  * 集成 Plum(东风破)配方管理功能
  */
 
-const { readFile, access, readdir, stat, mkdir } = require('fs/promises')
+const { readFile, access, readdir, stat, mkdir, writeFile, unlink, cp, rm } = require('fs/promises')
 const { join } = require('path')
 
 const RIME_DIRS = [
@@ -14,41 +14,251 @@ const RIME_DIRS = [
   join(process.env.HOME, '.config', 'ibus', 'rime')
 ]
 
-// Plum 配方定义
+// 配方分类定义
+const RECIPE_CATEGORIES = {
+  basic: {
+    id: 'basic',
+    name: '基础配置',
+    description: 'Rime 基础配置和工具',
+    icon: 'settings'
+  },
+  vocabulary: {
+    id: 'vocabulary',
+    name: '词库配方',
+    description: '词库和词汇表',
+    icon: 'book'
+  },
+  input_method: {
+    id: 'input_method',
+    name: '拼音输入',
+    description: '各类拼音输入方案',
+    icon: 'keyboard'
+  },
+  double_pinyin: {
+    id: 'double_pinyin',
+    name: '双拼方案',
+    description: '双拼输入方案',
+    icon: 'keyboard'
+  },
+  dialect: {
+    id: 'dialect',
+    name: '方言输入',
+    description: '方言输入方案',
+    icon: 'globe'
+  },
+  stroke: {
+    id: 'stroke',
+    name: '笔画输入',
+    description: '笔画和字形输入方案',
+    icon: 'edit'
+  },
+  symbol: {
+    id: 'symbol',
+    name: '符号输入',
+    description: '符号和特殊字符输入',
+    icon: 'smile'
+  },
+  tool: {
+    id: 'tool',
+    name: '工具类',
+    description: '实用工具和辅助配置',
+    icon: 'tool'
+  }
+}
+
+// Plum 配方定义 (扩展版)
 const PLUM_RECIPES = [
+  // === 词库配方 ===
   {
-    id: 'full',
-    name: '全部文件',
-    description: '安装或更新 rime-ice 的全部文件',
+    id: 'rime_ice',
+    name: '雾凇拼音',
+    description: '一个针对现代汉语拼音输入法优化的词库,包含大量现代汉语词汇',
     recipe: 'iDvel/rime-ice:others/recipes/full',
+    category: 'vocabulary',
+    files: ['rime_ice.dict.yaml', 'rime_ice.schema.yaml', 'default.custom.yaml', 'symbols.yaml'],
     installed: false
   },
   {
-    id: 'all_dicts',
-    name: '所有词库',
-    description: '安装或更新所有词库文件',
-    recipe: 'iDvel/rime-ice:others/recipes/all_dicts',
+    id: 'essay',
+    name: '八股文词汇表',
+    description: '古汉语、成语、俗语等传统文化词汇',
+    recipe: 'lotem/rime-essay:master',
+    category: 'vocabulary',
+    files: ['essay.dict.yaml', 'essay.schema.yaml', 'default.custom.yaml'],
     installed: false
   },
   {
-    id: 'cn_dicts',
-    name: '拼音词库',
-    description: '安装或更新拼音词库文件',
-    recipe: 'iDvel/rime-ice:others/recipes/cn_dicts',
+    id: 'octagram',
+    name: '八股文语言模型',
+    description: '基于八股文的统计语言模型,提供智能输入建议',
+    recipe: 'lotem/rime-octagram:master',
+    category: 'vocabulary',
+    files: ['octagram.dict.yaml', 'essay.dict.yaml'],
+    installed: false
+  },
+
+  // === 拼音输入 ===
+  {
+    id: 'luna_pinyin',
+    name: '朙月拼音',
+    description: 'Rime 官方提供的拼音输入方案,标准且稳定',
+    recipe: 'rime-installer/rime-luna-pinyin:master',
+    category: 'input_method',
+    files: ['luna_pinyin.schema.yaml'],
     installed: false
   },
   {
-    id: 'en_dicts',
-    name: '英文词库',
-    description: '安装或更新英文词库文件',
-    recipe: 'iDvel/rime-ice:others/recipes/en_dicts',
+    id: 'terra_pinyin',
+    name: '地球拼音',
+    description: '拼音输入方案的改进版,提供更好的输入体验',
+    recipe: 'rime-installer/rime-terra-pinyin:master',
+    category: 'input_method',
+    files: ['terra_pinyin.schema.yaml'],
+    installed: false
+  },
+
+  // === 双拼方案 ===
+  {
+    id: 'double_pinyin',
+    name: '双拼',
+    description: '标准的双拼输入方案',
+    recipe: 'rime-installer/rime-double-pinyin:master',
+    category: 'double_pinyin',
+    files: ['double_pinyin.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'combo_pinyin',
+    name: '宫保拼音',
+    description: '智能双拼输入方案,支持多种双拼布局',
+    recipe: 'rime-installer/rime-combo-pinyin:master',
+    category: 'double_pinyin',
+    files: ['combo_pinyin.schema.yaml'],
+    installed: false
+  },
+
+  // === 笔画输入 ===
+  {
+    id: 'stroke',
+    name: '五笔画',
+    description: '基于汉字五笔画的输入方案',
+    recipe: 'rime-installer/rime-stroke:master',
+    category: 'stroke',
+    files: ['stroke.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'wubi',
+    name: '五笔',
+    description: '经典五笔输入方案',
+    recipe: 'rime-installer/rime-wubi:master',
+    category: 'stroke',
+    files: ['wubi86.schema.yaml', 'wubi.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'wubi98',
+    name: '五笔98版',
+    description: '五笔98版输入方案',
+    recipe: 'rime-installer/rime-wubi98:master',
+    category: 'stroke',
+    files: ['wubi98.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'cangjie',
+    name: '仓颉',
+    description: '仓颉输入方案',
+    recipe: 'rime-installer/rime-cangjie:master',
+    category: 'stroke',
+    files: ['cangjie.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'quick',
+    name: '速成',
+    description: '速成输入方案(简易仓颉)',
+    recipe: 'rime-installer/rime-quick:master',
+    category: 'stroke',
+    files: ['quick.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'sancang',
+    name: '三码仓颉',
+    description: '三码仓颉输入方案',
+    recipe: 'rime-installer/rime-sancang:master',
+    category: 'stroke',
+    files: ['sancang.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'zhengma',
+    name: '郑码',
+    description: '郑码输入方案',
+    recipe: 'rime-installer/rime-zhengma:master',
+    category: 'stroke',
+    files: ['zhengma.schema.yaml'],
+    installed: false
+  },
+
+  // === 方言输入 ===
+  {
+    id: 'jyutping',
+    name: '粤拼',
+    description: '粤语拼音输入方案',
+    recipe: 'rime-installer/rime-jyutping:master',
+    category: 'dialect',
+    files: ['jyutping.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'wugniu',
+    name: '吴语上海话',
+    description: '上海话吴语输入方案',
+    recipe: 'rime-installer/rime-wugniu:master',
+    category: 'dialect',
+    files: ['wugniu.schema.yaml'],
+    installed: false
+  },
+
+  // === 符号输入 ===
+  {
+    id: 'emoji',
+    name: '绘文字',
+    description: 'Emoji 表情符号输入',
+    recipe: 'rime-installer/rime-emoji:master',
+    category: 'symbol',
+    files: ['emoji.schema.yaml'],
+    installed: false
+  },
+  {
+    id: 'ipa',
+    name: '国际音标',
+    description: '国际音标(IPA)输入方案',
+    recipe: 'rime-installer/rime-ipa:master',
+    category: 'symbol',
+    files: ['ipa.schema.yaml', 'ipa_x-sampa.schema.yaml'],
+    installed: false
+  },
+
+  // === 工具类 ===
+  {
+    id: 'prelude',
+    name: '基础配置',
+    description: 'Rime 基础配置文件,提供默认配置模板',
+    recipe: 'rime-installer/rime-prelude:master',
+    category: 'basic',
+    files: ['default.custom.yaml'],
     installed: false
   },
   {
     id: 'opencc',
     name: 'OpenCC',
-    description: '安装或更新 OpenCC 简繁转换配置',
+    description: 'OpenCC 简繁转换配置',
     recipe: 'iDvel/rime-ice:others/recipes/opencc',
+    category: 'basic',
+    files: ['t2s.json', 's2t.json'],
     installed: false
   }
 ]
@@ -113,76 +323,312 @@ class RimeConfigPlugin {
     // 复制 Plum 配方定义
     this.recipes = PLUM_RECIPES.map(recipe => ({ ...recipe }))
 
+    // 扫描本地方案(只添加本地已存在的)
     if (this.rimeDir) {
+      await this.scanLocalSchemes()
       await this.checkInstalledRecipes()
+    }
+
+    // 过滤:移除未安装的本地方案
+    this.recipes = this.recipes.filter(recipe => {
+      // 如果是本地方案(recipe为空),只保留已安装的
+      if (!recipe.recipe) {
+        return recipe.installed
+      }
+      // Plum 配方都保留
+      return true
+    })
+  }
+
+  /**
+   * 扫描本地方案,自动添加到配方列表
+   */
+  async scanLocalSchemes() {
+    try {
+      const files = await readdir(this.rimeDir)
+      const schemaFiles = files.filter(f => f.endsWith('.schema.yaml'))
+
+      // 已知的 Plum 配方文件列表(排除这些)
+      const plumRecipeFiles = new Set()
+      for (const recipe of PLUM_RECIPES) {
+        recipe.files?.forEach(file => plumRecipeFiles.add(file))
+      }
+
+      // 本地方案映射表
+      const localSchemeNames = {
+        'double_pinyin_mspy.schema.yaml': { id: 'double_pinyin_mspy', name: '微软双拼', description: '微软双拼输入方案' },
+        'double_pinyin_flypy.schema.yaml': { id: 'double_pinyin_flypy', name: '小鹤双拼', description: '小鹤双拼输入方案' },
+        'double_pinyin_abc.schema.yaml': { id: 'double_pinyin_abc', name: 'ABC双拼', description: 'ABC双拼输入方案' },
+        'double_pinyin_jiajia.schema.yaml': { id: 'double_pinyin_jiajia', name: '加加双拼', description: '加加双拼输入方案' },
+        'double_pinyin_sogou.schema.yaml': { id: 'double_pinyin_sogou', name: '搜狗双拼', description: '搜狗双拼输入方案' },
+        'double_pinyin_ziguang.schema.yaml': { id: 'double_pinyin_ziguang', name: '紫光双拼', description: '紫光双拼输入方案' }
+      }
+
+      // 扫描本地双拼方案
+      for (const schemaFile of schemaFiles) {
+        // 跳过已知的 Plum 配方
+        if (plumRecipeFiles.has(schemaFile)) continue
+
+        // 检查是否是已知的本地方案
+        if (localSchemeNames[schemaFile]) {
+          const schemeInfo = localSchemeNames[schemaFile]
+
+          // 检查是否已经存在
+          const exists = this.recipes.find(r => r.id === schemeInfo.id)
+          if (!exists) {
+            this.recipes.push({
+              id: schemeInfo.id,
+              name: schemeInfo.name,
+              description: schemeInfo.description,
+              recipe: '', // 本地方案,无 recipe
+              category: 'double_pinyin',
+              files: [schemaFile],
+              installed: false,
+              updatable: false // 本地方案,不可更新
+            })
+            this.context.logger.info(`检测到本地方案: ${schemeInfo.name}`)
+          }
+        }
+      }
+    } catch (error) {
+      this.context.logger.warn(`扫描本地方案失败: ${error.message}`)
     }
   }
 
   async checkInstalledRecipes() {
-    // 检查配方是否已安装(通过检查相关文件是否存在)
+    // 检查配方是否已安装 (混合检测方案)
     const files = await readdir(this.rimeDir)
 
-    // full 配方检查
-    const fullRecipe = this.recipes.find(r => r.id === 'full')
-    if (fullRecipe) {
-      fullRecipe.installed = files.includes('rime_ice.dict.yaml') || files.includes('melt_eng.dict.yaml')
-    }
-
-    // all_dicts 配方检查
-    const allDictsRecipe = this.recipes.find(r => r.id === 'all_dicts')
-    if (allDictsRecipe) {
-      allDictsRecipe.installed = files.includes('rime_ice.dict.yaml')
-    }
-
-    // cn_dicts 配方检查
-    const cnDictsRecipe = this.recipes.find(r => r.id === 'cn_dicts')
-    if (cnDictsRecipe) {
-      cnDictsRecipe.installed = files.some(f => f.startsWith('cn_dicts_'))
-    }
-
-    // en_dicts 配方检查
-    const enDictsRecipe = this.recipes.find(r => r.id === 'en_dicts')
-    if (enDictsRecipe) {
-      enDictsRecipe.installed = files.includes('melt_eng.dict.yaml')
-    }
-
-    // opencc 配方检查
-    const openccRecipe = this.recipes.find(r => r.id === 'opencc')
-    if (openccRecipe) {
-      openccRecipe.installed = files.some(f => f.includes('opencc'))
+    // 检查每个配方是否已安装
+    for (const recipe of this.recipes) {
+      recipe.installed = await this.isRecipeInstalled(recipe.id, files)
     }
   }
 
   /**
-   * 获取 Plum 配方列表
+   * 检测配方是否已安装 (标记 + 文件混合检测)
+   * @param {string} recipeId - 配方ID
+   * @param {string[]} files - Rime目录文件列表 (可选,用于回退检测)
+   * @returns {Promise<boolean>}
    */
-  async getRecipes() {
+  async isRecipeInstalled(recipeId, files = null) {
+    // 方法1: 优先检查标记文件 (最准确)
+    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    try {
+      await access(markerFile)
+      return true
+    } catch {
+      // 标记文件不存在,尝试方法2
+    }
+
+    // 方法2: 回退到特征文件检测 (兼容手动安装)
+    if (!files) {
+      files = await readdir(this.rimeDir)
+    }
+
+    return this.detectByCharacteristicFiles(recipeId, files)
+  }
+
+  /**
+   * 基于特征文件的配方检测 (回退方案)
+   * 用于检测手动安装的配方(无标记文件)
+   * @param {string} recipeId - 配方ID
+   * @param {string[]} files - 文件列表
+   * @returns {boolean}
+   */
+  detectByCharacteristicFiles(recipeId, files) {
+    const detectionRules = {
+      'rime_ice': () => files.includes('rime_ice.dict.yaml'),
+      'essay': () => files.includes('essay.dict.yaml'),
+      'octagram': () => files.includes('octagram.dict.yaml'),
+      'prelude': () => files.includes('default.custom.yaml'),
+      'opencc': () => files.includes('t2s.json') || files.includes('s2t.json'),
+      'luna_pinyin': () => files.includes('luna_pinyin.schema.yaml'),
+      'terra_pinyin': () => files.includes('terra_pinyin.schema.yaml'),
+      'double_pinyin': () => files.includes('double_pinyin.schema.yaml'),
+      'combo_pinyin': () => files.includes('combo_pinyin.schema.yaml'),
+      'stroke': () => files.includes('stroke.schema.yaml'),
+      'wubi': () => files.includes('wubi86.schema.yaml') || files.includes('wubi.schema.yaml'),
+      'wubi98': () => files.includes('wubi98.schema.yaml'),
+      'cangjie': () => files.includes('cangjie.schema.yaml'),
+      'quick': () => files.includes('quick.schema.yaml'),
+      'sancang': () => files.includes('sancang.schema.yaml'),
+      'zhengma': () => files.includes('zhengma.schema.yaml'),
+      'jyutping': () => files.includes('jyutping.schema.yaml'),
+      'wugniu': () => files.includes('wugniu.schema.yaml'),
+      'emoji': () => files.includes('emoji.schema.yaml'),
+      'ipa': () => files.includes('ipa.schema.yaml') || files.includes('ipa_x-sampa.schema.yaml')
+    }
+
+    const detector = detectionRules[recipeId]
+    return detector ? detector() : false
+  }
+
+  /**
+   * 查找两个文件列表的交集
+   * @param {string[]} files1 - 文件列表1
+   * @param {string[]} files2 - 文件列表2
+   * @returns {string[]} 交集文件列表
+   */
+  findFileOverlap(files1, files2) {
+    return files1.filter(file => files2.includes(file))
+  }
+
+  /**
+   * 检测配方冲突(基于文件列表)
+   * @param {string} recipeId - 要安装的配方ID
+   * @returns {Promise<Object>} 冲突信息
+   */
+  async checkFileConflicts(recipeId) {
+    const recipe = this.recipes.find(r => r.id === recipeId)
+
+    // 获取新配方的文件列表
+    const newRecipeFiles = recipe.files || []
+
+    // 查找已安装的配方中,哪些会生成相同的文件
+    const conflictingRecipes = []
+
+    for (const installedRecipe of this.recipes.filter(r => r.installed)) {
+      if (installedRecipe.id === recipeId) continue
+
+      // 检查文件列表是否有交集
+      const fileOverlap = this.findFileOverlap(newRecipeFiles, installedRecipe.files || [])
+
+      if (fileOverlap.length > 0) {
+        conflictingRecipes.push({
+          recipeId: installedRecipe.id,
+          recipeName: installedRecipe.name,
+          conflictingFiles: fileOverlap
+        })
+      }
+    }
+
     return {
-      success: true,
-      data: {
-        recipes: this.recipes
+      hasConflict: conflictingRecipes.length > 0,
+      conflictingRecipes: conflictingRecipes,
+      allConflictingFiles: conflictingRecipes.flatMap(r => r.conflictingFiles)
+    }
+  }
+
+  /**
+   * 创建配方安装标记文件
+   * @param {string} recipeId - 配方ID
+   */
+  async markRecipeInstalled(recipeId) {
+    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    const installData = {
+      recipeId: recipeId,
+      installedAt: new Date().toISOString(),
+      version: '1.0'
+    }
+    await writeFile(markerFile, JSON.stringify(installData, null, 2))
+    this.context.logger.info(`已创建配方标记: ${recipeId}`)
+  }
+
+  /**
+   * 移除配方安装标记文件
+   * @param {string} recipeId - 配方ID
+   */
+  async unmarkRecipeInstalled(recipeId) {
+    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    try {
+      await unlink(markerFile)
+      this.context.logger.info(`已移除配方标记: ${recipeId}`)
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        this.context.logger.warn(`移除标记文件失败: ${error.message}`)
       }
     }
   }
 
   /**
-   * 安装 Plum 配方
-   * 通过插件系统的 context.api.process.exec() 安全执行
+   * 获取 Plum 配方列表
+   * 注意: IPC 层会自动包装返回值,所以这里直接返回数据对象即可
    */
-  async installRecipe(recipeString) {
+  async getRecipes() {
+    return {
+      recipes: this.recipes,
+      categories: RECIPE_CATEGORIES
+    }
+  }
+
+  /**
+   * 获取配方分类列表
+   */
+  async getRecipeCategories() {
+    return {
+      success: true,
+      data: {
+        categories: RECIPE_CATEGORIES
+      }
+    }
+  }
+
+  /**
+   * 安装 Plum 配方 (增强版: 包含冲突检测和自动卸载)
+   * 通过插件系统的 context.api.process.exec() 安全执行
+   * @param {string|object} recipeParam - Plum 配方标识(如 'iDvel/rime-ice:others/recipes/full') 或 { recipe: string } 对象
+   */
+  async installRecipe(recipeParam) {
     if (!this.rimeDir) {
       throw new Error('Rime 未安装')
     }
+
+    // 兼容两种参数格式: 字符串 或 { recipe: string } 对象
+    const recipeString = typeof recipeParam === 'string' ? recipeParam : recipeParam?.recipe
 
     const recipe = this.recipes.find(r => r.recipe === recipeString)
     if (!recipe) {
       throw new Error('配方不存在')
     }
 
+    // 检查是否为本地方案(不可更新)
+    if (!recipe.recipe) {
+      throw new Error(`${recipe.name} 是本地方案,不支持通过 Plum 安装`)
+    }
+
     this.context.logger.info(`安装配方: ${recipe.name} (${recipeString})`)
 
     try {
-      // 请求进程执行权限
+      // 0. 安装前自动备份
+      try {
+        await this.createBackup(`安装前备份 - ${recipe.name}`, false)
+        this.context.logger.info('安装前备份创建成功')
+      } catch (backupError) {
+        this.context.logger.error('安装前备份失败,中止安装:', backupError)
+        throw new Error('安装前备份失败,操作已中止')
+      }
+
+      // 1. 检测文件冲突(查找会生成相同文件的已安装配方)
+      const conflictCheck = await this.checkFileConflicts(recipe.id)
+
+      if (conflictCheck.hasConflict) {
+        // 记录冲突信息
+        const conflictNames = conflictCheck.conflictingRecipes
+          .map(r => r.recipeName)
+          .join('、')
+
+        this.context.logger.warn(
+          `检测到 ${conflictCheck.conflictingRecipes.length} 个冲突配方: ${conflictNames}` +
+          `\n冲突文件: ${conflictCheck.allConflictingFiles.join(', ')}`
+        )
+
+        // 自动卸载冲突的配方
+        for (const conflictRecipe of conflictCheck.conflictingRecipes) {
+          this.context.logger.info(
+            `正在卸载冲突配方: ${conflictRecipe.recipeName} ` +
+            `(冲突文件: ${conflictRecipe.conflictingFiles.join(', ')})`
+          )
+
+          // 只删除标记文件,不删除其他配方文件
+          // (文件会被新配方自然覆盖)
+          await this.unmarkRecipeInstalled(conflictRecipe.recipeId)
+
+          this.context.logger.info(`已卸载配方: ${conflictRecipe.recipeName}`)
+        }
+      }
+
+      // 2. 请求进程执行权限
       const hasPermission = await this.context.api.permission.request('process:exec', {
         reason: '安装 Plum 配方需要执行 rime-install 命令',
         context: {
@@ -195,22 +641,26 @@ class RimeConfigPlugin {
         throw new Error('未授予进程执行权限，无法安装配方')
       }
 
-      // 使用插件系统的进程 API,自动进行权限检查
+      // 3. 使用插件系统的进程 API,自动进行权限检查
       const result = await this.context.api.process.exec(`rime-install ${recipeString}`)
 
       if (result.stderr) {
         this.context.logger.warn('安装警告:', result.stderr)
       }
 
+      // 4. 创建配方安装标记文件
+      await this.markRecipeInstalled(recipe.id)
+
       this.context.logger.info(`配方安装成功: ${recipe.name}`)
 
-      // 重新检查安装状态
+      // 5. 重新检查安装状态
       await this.checkInstalledRecipes()
 
       return {
         success: true,
         message: `配方 ${recipe.name} 安装成功`,
-        output: result.stdout
+        output: result.stdout,
+        uninstalledRecipes: conflictCheck.conflictingRecipes.map(r => r.recipeId)
       }
     } catch (error) {
       this.context.logger.error('配方安装失败:', error)
@@ -220,15 +670,24 @@ class RimeConfigPlugin {
 
   /**
    * 更新 Plum 配方
+   * @param {string|object} recipeParam - Plum 配方标识 或 { recipe: string } 对象
    */
-  async updateRecipe(recipeString) {
+  async updateRecipe(recipeParam) {
     if (!this.rimeDir) {
       throw new Error('Rime 未安装')
     }
 
+    // 兼容两种参数格式: 字符串 或 { recipe: string } 对象
+    const recipeString = typeof recipeParam === 'string' ? recipeParam : recipeParam?.recipe
+
     const recipe = this.recipes.find(r => r.recipe === recipeString)
     if (!recipe) {
       throw new Error('配方不存在')
+    }
+
+    // 检查是否为本地方案(不可更新)
+    if (!recipe.recipe) {
+      throw new Error(`${recipe.name} 是本地方案,不支持更新`)
     }
 
     this.context.logger.info(`更新配方: ${recipe.name} (${recipeString})`)
@@ -272,11 +731,15 @@ class RimeConfigPlugin {
 
   /**
    * 卸载 Plum 配方
+   * @param {string|object} recipeParam - Plum 配方标识 或 { recipe: string } 对象
    */
-  async uninstallRecipe(recipeString) {
+  async uninstallRecipe(recipeParam) {
     if (!this.rimeDir) {
       throw new Error('Rime 未安装')
     }
+
+    // 兼容两种参数格式: 字符串 或 { recipe: string } 对象
+    const recipeString = typeof recipeParam === 'string' ? recipeParam : recipeParam?.recipe
 
     const recipe = this.recipes.find(r => r.recipe === recipeString)
     if (!recipe) {
@@ -286,7 +749,16 @@ class RimeConfigPlugin {
     this.context.logger.info(`卸载配方: ${recipe.name} (${recipeString})`)
 
     try {
-      // 请求文件写入权限
+      // 0. 卸载前自动备份
+      try {
+        await this.createBackup(`卸载前备份 - ${recipe.name}`, false)
+        this.context.logger.info('卸载前备份创建成功')
+      } catch (backupError) {
+        this.context.logger.error('卸载前备份失败,中止卸载:', backupError)
+        throw new Error('卸载前备份失败,操作已中止')
+      }
+
+      // 1. 请求文件写入权限
       const hasPermission = await this.context.api.permission.request('fs:write', {
         reason: '卸载 Plum 配方需要删除相关文件',
         context: {
@@ -339,6 +811,102 @@ class RimeConfigPlugin {
       this.context.logger.error('配方卸载失败:', error)
       throw error
     }
+  }
+
+  /**
+   * 获取 Rime 安装状态
+   */
+  async getRimeStatus() {
+    const diagnostics = await this.diagnoseRimeInstallation()
+
+    return {
+      installed: diagnostics.installed,
+      rimeDir: diagnostics.rimeDir || null,
+      version: diagnostics.version || null
+    }
+  }
+
+  /**
+   * 诊断 Rime 安装
+   */
+  async diagnoseRimeInstallation() {
+    const diagnostics = {
+      installed: false,
+      rimeDir: null,
+      version: null,
+      errors: [],
+      warnings: [],
+      info: {}
+    }
+
+    // 检查 Rime 目录
+    for (const dir of RIME_DIRS) {
+      try {
+        await access(dir)
+        diagnostics.rimeDir = dir
+        diagnostics.installed = true
+        diagnostics.info.rimeDir = dir
+        this.context.logger.info(`找到 Rime 目录: ${dir}`)
+        break
+      } catch (error) {
+        // 目录不存在,继续检查下一个
+      }
+    }
+
+    if (!diagnostics.installed) {
+      diagnostics.errors.push('未找到 Rime 配置目录')
+      diagnostics.errors.push('请先安装 Rime 输入法')
+      // 直接返回 diagnostics 对象,不要包装
+      return diagnostics
+    }
+
+    // 检查必要文件
+    try {
+      const defaultCustomPath = join(diagnostics.rimeDir, 'default.custom.yaml')
+      await access(defaultCustomPath)
+      diagnostics.info.defaultCustomYaml = '存在'
+    } catch (error) {
+      diagnostics.warnings.push('default.custom.yaml 不存在,将自动创建')
+    }
+
+    // 检查 rime_deployer
+    try {
+      const result = await this.context.api.process.exec('which rime_deployer')
+      if (result.stdout.trim()) {
+        diagnostics.info.rimeDeployer = result.stdout.trim()
+
+        // 尝试获取版本
+        try {
+          const versionResult = await this.context.api.process.exec('rime_deployer --version')
+          if (versionResult.stdout) {
+            diagnostics.version = versionResult.stdout.trim().split('\n')[0]
+          }
+        } catch (error) {
+          diagnostics.version = '未知版本'
+        }
+      } else {
+        diagnostics.errors.push('未找到 rime_deployer 命令')
+      }
+    } catch (error) {
+      diagnostics.errors.push('无法检查 rime_deployer: ' + error.message)
+    }
+
+    // 检查 Plum
+    try {
+      const plumResult = await this.context.api.process.exec('which rime-install')
+      if (plumResult.stdout.trim()) {
+        diagnostics.info.plumInstalled = true
+        diagnostics.info.rimeInstall = plumResult.stdout.trim()
+      } else {
+        diagnostics.warnings.push('未安装 Plum (东风破),配方功能可能受限')
+      }
+    } catch (error) {
+      diagnostics.warnings.push('无法检查 Plum: ' + error.message)
+    }
+
+    // 直接返回 diagnostics 对象,不要包装
+    // IPC 层会自动包装成 { success: true, data: diagnostics }
+    return diagnostics
   }
 
   /**
@@ -459,7 +1027,16 @@ class RimeConfigPlugin {
     }
 
     if (!content.includes(`- ${schemeId}`)) {
-      // 请求文件写入权限
+      // 0. 启用方案前自动备份
+      try {
+        await this.createBackup(`启用方案前备份 - ${schemeId}`, false)
+        this.context.logger.info('启用方案前备份创建成功')
+      } catch (backupError) {
+        this.context.logger.error('启用方案前备份失败,中止操作:', backupError)
+        throw new Error('启用方案前备份失败,操作已中止')
+      }
+
+      // 1. 请求文件写入权限
       const hasPermission = await this.context.api.permission.request('fs:write', {
         reason: '启用输入方案需要修改配置文件',
         context: {
@@ -502,7 +1079,16 @@ class RimeConfigPlugin {
       return
     }
 
-    // 请求文件写入权限
+    // 0. 禁用方案前自动备份
+    try {
+      await this.createBackup(`禁用方案前备份 - ${schemeId}`, false)
+      this.context.logger.info('禁用方案前备份创建成功')
+    } catch (backupError) {
+      this.context.logger.error('禁用方案前备份失败,中止操作:', backupError)
+      throw new Error('禁用方案前备份失败,操作已中止')
+    }
+
+    // 1. 请求文件写入权限
     const hasPermission = await this.context.api.permission.request('fs:write', {
       reason: '禁用输入方案需要修改配置文件',
       context: {
@@ -522,6 +1108,379 @@ class RimeConfigPlugin {
     await this.deployRime()
 
     this.context.logger.info(`方案已禁用: ${schemeId}`)
+  }
+
+  /**
+   * 创建配置备份
+   * @param {string} description - 备份描述
+   * @param {boolean} isPermanent - 是否为长期备份
+   * @returns {Promise<object>} 备份信息
+   */
+  async createBackup(description = '手动备份', isPermanent = false) {
+    if (!this.rimeDir) {
+      throw new Error('Rime 未安装')
+    }
+
+    if (!this.backupDir) {
+      throw new Error('备份目录未初始化')
+    }
+
+    try {
+      // 生成备份目录名
+      const now = new Date()
+      let backupId
+
+      if (isPermanent) {
+        // 长期备份使用 Unix 时间戳
+        backupId = `backup-permanent-${now.getTime()}`
+      } else {
+        // 普通备份使用格式化的日期时间
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        const hour = String(now.getHours()).padStart(2, '0')
+        const minute = String(now.getMinutes()).padStart(2, '0')
+        const second = String(now.getSeconds()).padStart(2, '0')
+        backupId = `backup-${year}-${month}-${day}-${hour}-${minute}-${second}`
+      }
+
+      const backupPath = join(this.backupDir, backupId)
+
+      // 创建备份目录
+      await mkdir(backupPath, { recursive: true })
+
+      // 复制所有配置文件到备份目录
+      await cp(this.rimeDir, backupPath, {
+        recursive: true,
+        filter: (src) => {
+          // 排除备份目录本身
+          return !src.startsWith(this.backupDir)
+        }
+      })
+
+      // 计算备份大小
+      const backupSize = await this.getDirectorySize(backupPath)
+
+      // 创建备份元数据
+      const metadata = {
+        backupId,
+        description,
+        createdAt: now.getTime(),
+        size: backupSize,
+        isPermanent
+      }
+
+      // 写入元数据文件
+      const metadataPath = join(backupPath, 'backup-metadata.json')
+      await writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+
+      this.context.logger.info(`备份创建成功: ${backupId} (${description})`)
+
+      // 异步清理旧备份
+      this.cleanupOldBackups().catch(error => {
+        this.context.logger.warn(`清理旧备份失败: ${error.message}`)
+      })
+
+      return {
+        success: true,
+        data: metadata
+      }
+    } catch (error) {
+      this.context.logger.error('创建备份失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 计算目录大小
+   * @param {string} dirPath - 目录路径
+   * @returns {Promise<number>} 目录大小(字节)
+   */
+  async getDirectorySize(dirPath) {
+    let totalSize = 0
+
+    async function calculateSize(path) {
+      const stats = await stat(path)
+
+      if (stats.isDirectory()) {
+        const files = await readdir(path)
+        for (const file of files) {
+          const filePath = join(path, file)
+          // 跳过备份目录本身
+          if (!filePath.includes('backups')) {
+            await calculateSize(filePath)
+          }
+        }
+      } else {
+        totalSize += stats.size
+      }
+    }
+
+    await calculateSize(dirPath)
+    return totalSize
+  }
+
+  /**
+   * 清理旧备份
+   * 删除超过限制数量的普通备份和超过3个月的备份
+   */
+  async cleanupOldBackups() {
+    if (!this.backupDir) {
+      return
+    }
+
+    try {
+      const backups = await this.getBackupList()
+      if (!backups.success || !backups.data.backups) {
+        return
+      }
+
+      const allBackups = backups.data.backups
+      const now = Date.now()
+      const threeMonthsAgo = now - 90 * 24 * 60 * 60 * 1000 // 3个月
+      const toDelete = []
+
+      // 规则1: 删除超过3个月的普通备份
+      for (const backup of allBackups) {
+        if (!backup.isPermanent && backup.createdAt < threeMonthsAgo) {
+          toDelete.push(backup.backupId)
+        }
+      }
+
+      // 规则2: 限制普通备份数量为10个
+      const normalBackups = allBackups
+        .filter(b => !b.isPermanent)
+        .sort((a, b) => b.createdAt - a.createdAt)
+
+      if (normalBackups.length > 10) {
+        const excessBackups = normalBackups.slice(10)
+        for (const backup of excessBackups) {
+          if (!toDelete.includes(backup.backupId)) {
+            toDelete.push(backup.backupId)
+          }
+        }
+      }
+
+      // 执行删除
+      for (const backupId of toDelete) {
+        await this.deleteBackup(backupId)
+        this.context.logger.info(`已清理旧备份: ${backupId}`)
+      }
+
+      if (toDelete.length > 0) {
+        this.context.logger.info(`备份清理完成,删除了 ${toDelete.length} 个旧备份`)
+      }
+    } catch (error) {
+      this.context.logger.warn(`清理旧备份时出错: ${error.message}`)
+    }
+  }
+
+  /**
+   * 获取备份列表
+   * @returns {Promise<object>} 备份列表
+   */
+  async getBackupList() {
+    if (!this.backupDir) {
+      return {
+        success: false,
+        message: '备份目录未初始化'
+      }
+    }
+
+    try {
+      const backupDirs = await readdir(this.backupDir)
+      const backups = []
+
+      for (const dirName of backupDirs) {
+        if (!dirName.startsWith('backup-')) {
+          continue
+        }
+
+        const backupPath = join(this.backupDir, dirName)
+        const metadataPath = join(backupPath, 'backup-metadata.json')
+
+        try {
+          const metadataContent = await readFile(metadataPath, 'utf-8')
+          const metadata = JSON.parse(metadataContent)
+          backups.push(metadata)
+        } catch (error) {
+          // 元数据文件缺失或损坏,标记为无效备份
+          this.context.logger.warn(`备份元数据无效: ${dirName}`)
+        }
+      }
+
+      // 按创建时间倒序排列
+      backups.sort((a, b) => b.createdAt - a.createdAt)
+
+      return {
+        success: true,
+        data: {
+          backups
+        }
+      }
+    } catch (error) {
+      this.context.logger.error('获取备份列表失败:', error)
+      return {
+        success: false,
+        message: error.message
+      }
+    }
+  }
+
+  /**
+   * 获取单个备份信息
+   * @param {string} backupId - 备份ID
+   * @returns {Promise<object>} 备份信息
+   */
+  async getBackup(backupId) {
+    if (!this.backupDir) {
+      throw new Error('备份目录未初始化')
+    }
+
+    const backupPath = join(this.backupDir, backupId)
+    const metadataPath = join(backupPath, 'backup-metadata.json')
+
+    try {
+      const metadataContent = await readFile(metadataPath, 'utf-8')
+      const metadata = JSON.parse(metadataContent)
+
+      return {
+        success: true,
+        data: metadata
+      }
+    } catch (error) {
+      this.context.logger.error('获取备份信息失败:', error)
+      throw new Error('备份不存在或元数据损坏')
+    }
+  }
+
+  /**
+   * 恢复备份
+   * @param {string} backupId - 备份ID
+   * @returns {Promise<object>} 恢复结果
+   */
+  async restoreBackup(backupId) {
+    if (!this.rimeDir) {
+      throw new Error('Rime 未安装')
+    }
+
+    if (!this.backupDir) {
+      throw new Error('备份目录未初始化')
+    }
+
+    try {
+      // 获取备份信息
+      const backupInfo = await this.getBackup(backupId)
+      if (!backupInfo.success) {
+        throw new Error('备份不存在')
+      }
+
+      const backupPath = join(this.backupDir, backupId)
+
+      // 先创建当前配置的备份
+      await this.createBackup(`恢复前备份 - 恢复 ${backupId}`, false)
+
+      // 删除当前配置文件(保留备份目录)
+      const files = await readdir(this.rimeDir)
+      for (const file of files) {
+        if (file !== 'backups') {
+          const filePath = join(this.rimeDir, file)
+          await rm(filePath, { recursive: true, force: true })
+        }
+      }
+
+      // 从备份目录恢复文件
+      const backupFiles = await readdir(backupPath)
+      for (const file of backupFiles) {
+        if (file !== 'backup-metadata.json') {
+          const srcPath = join(backupPath, file)
+          const destPath = join(this.rimeDir, file)
+          await cp(srcPath, destPath, { recursive: true })
+        }
+      }
+
+      // 重新部署 Rime
+      await this.deployRime()
+
+      this.context.logger.info(`备份恢复成功: ${backupId}`)
+
+      return {
+        success: true,
+        message: '备份恢复成功'
+      }
+    } catch (error) {
+      this.context.logger.error('恢复备份失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除备份
+   * @param {string} backupId - 备份ID
+   * @returns {Promise<object>} 删除结果
+   */
+  async deleteBackup(backupId) {
+    if (!this.backupDir) {
+      throw new Error('备份目录未初始化')
+    }
+
+    try {
+      const backupPath = join(this.backupDir, backupId)
+
+      // 删除备份目录
+      await rm(backupPath, { recursive: true, force: true })
+
+      this.context.logger.info(`备份已删除: ${backupId}`)
+
+      return {
+        success: true,
+        message: '备份删除成功'
+      }
+    } catch (error) {
+      this.context.logger.error('删除备份失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 切换备份的长期保存标记
+   * @param {string} backupId - 备份ID
+   * @returns {Promise<object>} 切换结果
+   */
+  async togglePermanent(backupId) {
+    if (!this.backupDir) {
+      throw new Error('备份目录未初始化')
+    }
+
+    try {
+      const backupInfo = await this.getBackup(backupId)
+      if (!backupInfo.success) {
+        throw new Error('备份不存在')
+      }
+
+      const metadata = backupInfo.data
+      const backupPath = join(this.backupDir, backupId)
+      const metadataPath = join(backupPath, 'backup-metadata.json')
+
+      // 切换 isPermanent 标记
+      metadata.isPermanent = !metadata.isPermanent
+
+      // 更新元数据文件
+      await writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+
+      this.context.logger.info(
+        `备份 ${backupId} 已${metadata.isPermanent ? '标记为长期' : '取消长期'}保存`
+      )
+
+      return {
+        success: true,
+        data: metadata,
+        message: metadata.isPermanent ? '已标记为长期备份' : '已取消长期备份标记'
+      }
+    } catch (error) {
+      this.context.logger.error('切换长期标记失败:', error)
+      throw error
+    }
   }
 }
 
@@ -577,6 +1536,18 @@ module.exports = {
     }
     return pluginInstance.uninstallRecipe(recipe)
   },
+  getRimeStatus: (_context) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.getRimeStatus()
+  },
+  diagnoseRimeInstallation: (_context) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.diagnoseRimeInstallation()
+  },
   deployRime: (_context) => {
     if (!pluginInstance) {
       throw new Error('Plugin not loaded')
@@ -600,5 +1571,42 @@ module.exports = {
       throw new Error('Plugin not loaded')
     }
     return pluginInstance.disableScheme(schemeId)
+  },
+  // 备份相关 API
+  createBackup: (_context, description, isPermanent) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.createBackup(description, isPermanent)
+  },
+  getBackupList: (_context) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.getBackupList()
+  },
+  getBackup: (_context, backupId) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.getBackup(backupId)
+  },
+  restoreBackup: (_context, backupId) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.restoreBackup(backupId)
+  },
+  deleteBackup: (_context, backupId) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.deleteBackup(backupId)
+  },
+  togglePermanent: (_context, backupId) => {
+    if (!pluginInstance) {
+      throw new Error('Plugin not loaded')
+    }
+    return pluginInstance.togglePermanent(backupId)
   }
 }

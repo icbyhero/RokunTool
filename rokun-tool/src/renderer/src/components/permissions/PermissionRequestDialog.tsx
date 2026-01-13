@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, AlertTriangle } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card, CardContent } from '../ui/Card'
@@ -18,7 +19,7 @@ interface PermissionRequest {
 
 interface PermissionRequestDialogProps {
   request: PermissionRequest
-  onResponse: (granted: boolean) => void
+  onResponse: (granted: boolean, sessionOnly?: boolean) => void
   onClose: () => void
 }
 
@@ -113,17 +114,21 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  const handleAllow = () => {
-    onResponse(true)
-  }
-
   const handleDeny = () => {
     onResponse(false)
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md">
+  const handleSessionOnly = () => {
+    onResponse(true, true)
+  }
+
+  const handlePermanentGrant = () => {
+    onResponse(true, false)
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4 animate-in fade-in duration-200">
+      <Card className="w-full max-w-md animate-in zoom-in-95 duration-200">
         <CardContent className="p-6">
           {/* 头部 */}
           <div className="flex items-start justify-between mb-4">
@@ -197,10 +202,16 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
           {showDetails && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
               <div className="text-sm text-blue-800 dark:text-blue-200">
-                <p className="font-medium mb-2">权限详情</p>
-                <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>此权限将被永久记录,除非您手动撤销</li>
-                  <li>您可以在插件设置页面随时撤销此权限</li>
+                <p className="font-medium mb-2">授权选项说明</p>
+                <ul className="list-disc list-inside space-y-2 text-xs">
+                  <li>
+                    <strong>永久授权</strong>: 权限将被永久记录,以后使用此功能时不再询问。
+                    您可以在插件设置页面随时撤销此权限。
+                  </li>
+                  <li>
+                    <strong>本次授权</strong>: 权限仅在当前应用会话中有效,关闭应用后失效。
+                    下次使用此功能时会再次询问。
+                  </li>
                   <li>撤销权限后,插件可能无法正常工作</li>
                 </ul>
               </div>
@@ -208,26 +219,24 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
           )}
 
           {/* 按钮 */}
-          <div className="flex gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-            >
-              取消
-            </Button>
-            <Button
-              variant="outline"
+              variant="destructive"
               onClick={handleDeny}
-              className="flex-1"
             >
               拒绝
             </Button>
             <Button
-              onClick={handleAllow}
-              className="flex-1"
+              variant="secondary"
+              onClick={handleSessionOnly}
             >
-              允许
+              本次授权
+            </Button>
+            <Button
+              variant="default"
+              onClick={handlePermanentGrant}
+            >
+              永久授权
             </Button>
           </div>
 
@@ -240,6 +249,7 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
           </button>
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   )
 }

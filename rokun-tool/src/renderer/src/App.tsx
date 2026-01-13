@@ -68,14 +68,15 @@ function App(): React.JSX.Element {
   }, [setCurrentPermissionRequest])
 
   // 处理权限响应
-  const handlePermissionResponse = (granted: boolean) => {
-    console.log('发送权限响应:', { granted, requestId: permissionRequest?.id })
+  const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean) => {
+    console.log('发送权限响应:', { granted, sessionOnly, requestId: permissionRequest?.id })
 
     if (permissionRequest) {
       // 发送响应到主进程
       window.electronAPI.permission.sendResponse?.({
         requestId: permissionRequest.id,
-        granted
+        granted,
+        sessionOnly
       })
 
       // 更新 store 中的当前请求
@@ -138,10 +139,10 @@ function App(): React.JSX.Element {
         {toasts.map((toast) => (
           <Toast key={toast.id} variant={toast.type === 'error' ? 'destructive' : 'default'}>
             <div className="flex items-center gap-2">
-              {toast.type === 'success' && <CheckCircle className="h-5 w-5 text-green-600" />}
-              {toast.type === 'error' && <AlertCircle className="h-5 w-5 text-red-600" />}
-              {toast.type === 'warning' && <AlertTriangle className="h-5 w-5 text-yellow-600" />}
-              {toast.type === 'info' && <Info className="h-5 w-5 text-blue-600" />}
+              {toast.type === 'success' && <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />}
+              {toast.type === 'error' && <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />}
+              {toast.type === 'warning' && <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />}
+              {toast.type === 'info' && <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
               <div>
                 <ToastTitle>
                   {toast.type === 'success' && '成功'}

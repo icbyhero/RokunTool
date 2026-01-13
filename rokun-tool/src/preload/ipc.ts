@@ -104,6 +104,7 @@ interface PermissionApi {
   sendResponse(response: {
     requestId: string
     granted: boolean
+    sessionOnly?: boolean
   }): void
 
   /** 移除监听器 */
@@ -143,6 +144,9 @@ interface PluginApi {
 
   /** 监听插件加载进度事件 */
   onLoading(callback: (_event: any, event: PluginLoadingEvent) => void): void
+
+  /** 监听插件操作进度事件 */
+  onOperationProgress(callback: (_event: any, event: any) => void): void
 
   /** 监听插件错误事件 */
   onError(callback: (_event: any, event: PluginErrorEvent) => void): void
@@ -208,6 +212,7 @@ const pluginApi: PluginApi = {
   onStatusChanged: (callback) => ipcRenderer.on('plugin:status-changed', (_, event) => callback(_, event)),
   onLoaded: (callback) => ipcRenderer.on('plugin:loaded', (_, event) => callback(_, event)),
   onLoading: (callback) => ipcRenderer.on('plugin:loading', (_, event) => callback(_, event)),
+  onOperationProgress: (callback) => ipcRenderer.on('plugin:operation-progress', (_, event) => callback(_, event)),
   onError: (callback) => ipcRenderer.on('plugin:error', (_, event) => callback(_, event)),
   removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
 }

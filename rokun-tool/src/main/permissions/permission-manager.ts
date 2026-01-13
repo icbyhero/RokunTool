@@ -13,6 +13,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { PermissionService, type Permission } from './permission-service'
 import { PermissionStore } from './permission-store'
+import { SessionPermissionManager } from './session-permission-manager'
 
 /**
  * 权限状态
@@ -51,6 +52,7 @@ export interface PermissionResponse {
   requestId: string
   granted: boolean
   permission: Permission
+  sessionOnly?: boolean  // 是否仅会话级授权
 }
 
 /**
@@ -104,10 +106,12 @@ export class PermissionManager {
   private permissionStates: Map<string, PluginPermissionState> = new Map()
   private pendingRequests: Map<string, PermissionRequest> = new Map()
   private mainWindow: BrowserWindow | null = null
+  private sessionPermissionManager: SessionPermissionManager
 
   constructor(permissionService?: PermissionService, store?: PermissionStore) {
     this.permissionService = permissionService || new PermissionService()
     this.store = store || new PermissionStore()
+    this.sessionPermissionManager = new SessionPermissionManager()
   }
 
   /**
@@ -139,18 +143,23 @@ export class PermissionManager {
       return PermissionStatus.GRANTED
     }
 
-    // 2. 检查已授予的权限
+    // 2. 检查会话权限
+    if (this.sessionPermissionManager.has(pluginId, permission)) {
+      return PermissionStatus.GRANTED
+    }
+
+    // 3. 检查永久权限
     if (this.permissionService.hasPermission(pluginId, permission)) {
       return PermissionStatus.GRANTED
     }
 
-    // 3. 检查是否已明确拒绝
+    // 4. 检查是否已明确拒绝
     const state = this.permissionStates.get(pluginId)
     if (state && state.permissions[permission]) {
       return state.permissions[permission]
     }
 
-    // 4. 未询问过
+    // 5. 未询问过,返回 PENDING 触发权限请求
     return PermissionStatus.PENDING
   }
 
@@ -180,11 +189,19 @@ export class PermissionManager {
     if (currentStatus === PermissionStatus.GRANTED) {
       return true
     }
+
+    // 注意:即使是 DENIED 状态也继续,允许用户重新请求
+    // DENIED 状态只在会话期间记住,下次启动应用会重置
+
+    // 3. 如果是 DENIED 状态,清除状态以便重新请求
     if (currentStatus === PermissionStatus.DENIED) {
-      return false
+      const state = this.permissionStates.get(pluginId)
+      if (state) {
+        delete state.permissions[permission]
+      }
     }
 
-    // 3. 发送权限请求到渲染进程
+    // 4. 发送权限请求到渲染进程
     const requestId = uuidv4()
     const request: PermissionRequest = {
       id: requestId,
@@ -216,7 +233,14 @@ export class PermissionManager {
 
       // 4. 处理用户响应
       if (response.granted) {
-        await this.grantPermission(pluginId, permission, 'user', context)
+        if (response.sessionOnly) {
+          // 会话级授权
+          this.sessionPermissionManager.grant(pluginId, permission)
+          console.log('[PermissionManager] 授予会话级权限:', { pluginId, permission })
+        } else {
+          // 永久授权
+          await this.grantPermission(pluginId, permission, 'user', context)
+        }
       } else {
         await this.denyPermission(pluginId, permission, 'user', context)
       }
@@ -302,6 +326,9 @@ export class PermissionManager {
 
   /**
    * 拒绝权限
+   *
+   * 注意:拒绝的权限不会持久化,只在当前会话期间记住
+   * 这样用户下次启动应用时可以重新请求权限
    */
   async denyPermission(
     pluginId: string,
@@ -309,15 +336,11 @@ export class PermissionManager {
     source: 'user' | 'system',
     context?: PermissionRequestContext
   ): Promise<void> {
-    // 更新状态
+    // 更新状态 - 只在内存中设置 DENIED 状态,不持久化
     const state = this.getOrCreateState(pluginId)
     state.permissions[permission] = PermissionStatus.DENIED
-    if (!state.requestedAt) {
-      state.requestedAt = {} as Record<Permission, number>
-    }
-    state.requestedAt[permission] = Date.now()
 
-    // 添加历史记录
+    // 添加历史记录 - 记录到内存中,但不持久化
     state.history.push({
       permission,
       status: PermissionStatus.DENIED,
@@ -327,7 +350,9 @@ export class PermissionManager {
     })
 
     this.permissionStates.set(pluginId, state)
-    await this.saveState(pluginId)
+
+    // 注意:不调用 saveState,因此 DENIED 状态不会持久化
+    // 这样下次启动应用时,权限状态会重置为 PENDING
 
     // 发送状态变更事件
     this.broadcastPermissionChange(pluginId, permission, PermissionStatus.DENIED)

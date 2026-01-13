@@ -54,6 +54,19 @@ export interface PermissionRequest {
   requestedAt: Date
 }
 
+/**
+ * 操作进度状态
+ */
+export interface OperationProgress {
+  operation: string
+  currentStep: number
+  totalSteps: number
+  stepName: string
+  status: 'running' | 'success' | 'error'
+  error?: string
+  logs: string[]
+}
+
 interface PluginState {
   plugins: PluginMetadata[]
   loading: boolean
@@ -65,6 +78,9 @@ interface PluginState {
   permissionRequests: PermissionRequest[]
   pluginPermissions: Map<string, PluginPermissionState>
   currentPermissionRequest: PermissionRequest | null
+
+  // 操作进度状态
+  operationProgress: Map<string, OperationProgress>
 
   // Actions
   setPlugins: (plugins: PluginMetadata[]) => void
@@ -92,6 +108,10 @@ interface PluginState {
   revokePermission: (pluginId: string, permission: string) => Promise<boolean>
   setCurrentPermissionRequest: (request: PermissionRequest | null) => void
   clearPermissionRequests: () => void
+
+  // 操作进度管理
+  setOperationProgress: (pluginId: string, progress: OperationProgress) => void
+  clearOperationProgress: (pluginId: string) => void
 }
 
 export const usePluginStore = create<PluginState>((set, get) => ({
@@ -105,6 +125,9 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   permissionRequests: [],
   pluginPermissions: new Map(),
   currentPermissionRequest: null,
+
+  // 操作进度状态初始化
+  operationProgress: new Map(),
 
   setPlugins: (plugins) => set({ plugins }),
 
@@ -313,5 +336,23 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   // 清除权限请求
   clearPermissionRequests: () => {
     set({ permissionRequests: [], currentPermissionRequest: null })
+  },
+
+  // 设置操作进度
+  setOperationProgress: (pluginId, progress) => {
+    set((prevState) => {
+      const operationProgress = new Map(prevState.operationProgress)
+      operationProgress.set(pluginId, progress)
+      return { operationProgress }
+    })
+  },
+
+  // 清除操作进度
+  clearOperationProgress: (pluginId) => {
+    set((prevState) => {
+      const operationProgress = new Map(prevState.operationProgress)
+      operationProgress.delete(pluginId)
+      return { operationProgress }
+    })
   }
 }))
