@@ -10,6 +10,7 @@ import { PluginContainer } from './components/plugin/PluginContainer'
 import { PluginErrorBoundary } from './components/plugin/PluginErrorBoundary'
 import { PermissionRequestDialog } from './components/permissions/PermissionRequestDialog'
 import { BatchPermissionDialog } from './components/permissions/BatchPermissionDialog'
+import { FeaturePermissionDialog } from './components/permissions/FeaturePermissionDialog'
 import { PermissionDeniedToast } from './components/permissions/PermissionDeniedToast'
 import { useUIStore } from './store/uiStore'
 import { usePluginStore } from './store/pluginStore'
@@ -23,6 +24,7 @@ import {
 import { CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { PluginPermission } from '@shared/types/plugin'
+import type { FeaturePermissionRequest } from './components/permissions/FeaturePermissionDialog'
 
 // 权限请求类型(与 preload 中的定义保持一致)
 interface PermissionRequest {
@@ -57,6 +59,7 @@ function App(): React.JSX.Element {
   const { setCurrentPermissionRequest } = usePluginStore()
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null)
   const [batchPermissionRequest, setBatchPermissionRequest] = useState<BatchPermissionRequest | null>(null)
+  const [featurePermissionRequest, setFeaturePermissionRequest] = useState<FeaturePermissionRequest | null>(null)
   const [permissionDeniedToasts, setPermissionDeniedToasts] = useState<Array<{
     id: string
     pluginName: string
@@ -120,6 +123,28 @@ function App(): React.JSX.Element {
     return () => {
       if (ipcRenderer) {
         ipcRenderer.removeListener('permission:batchRequest', handleBatchPermissionRequest)
+      }
+    }
+  }, [])
+
+  // 监听功能权限请求事件
+  useEffect(() => {
+    const handleFeaturePermissionRequest = (_event: any, request: FeaturePermissionRequest) => {
+      console.log('[App] 收到功能权限请求事件:', request)
+      setFeaturePermissionRequest(request)
+    }
+
+    // 监听来自主进程的功能权限请求
+    console.log('[App] 注册功能权限请求监听器...')
+    const ipcRenderer = (window as any).electron?.ipcRenderer
+    if (ipcRenderer) {
+      ipcRenderer.on('permission:featureRequest', handleFeaturePermissionRequest)
+    }
+
+    // 清理函数 - 移除事件监听器
+    return () => {
+      if (ipcRenderer) {
+        ipcRenderer.removeListener('permission:featureRequest', handleFeaturePermissionRequest)
       }
     }
   }, [])
@@ -225,6 +250,33 @@ function App(): React.JSX.Element {
     setBatchPermissionRequest(null)
   }
 
+  // 处理功能权限响应
+  const handleFeaturePermissionResponse = (result: { granted: boolean; sessionOnly: boolean }) => {
+    console.log('发送功能权限响应:', { ...result, requestId: featurePermissionRequest?.pluginId })
+
+    if (featurePermissionRequest) {
+      // 发送响应到主进程
+      const ipcRenderer = (window as any).electron?.ipcRenderer
+      if (ipcRenderer) {
+        ipcRenderer.send('permission:featureResponse', {
+          pluginId: featurePermissionRequest.pluginId,
+          featureName: featurePermissionRequest.featureName,
+          granted: result.granted,
+          sessionOnly: result.sessionOnly
+        })
+      }
+
+      // 关闭对话框
+      setFeaturePermissionRequest(null)
+    }
+  }
+
+  // 处理关闭功能权限对话框
+  const handleCloseFeatureDialog = () => {
+    console.log('关闭功能权限请求对话框')
+    setFeaturePermissionRequest(null)
+  }
+
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
@@ -273,6 +325,15 @@ function App(): React.JSX.Element {
           request={batchPermissionRequest}
           onResponse={handleBatchPermissionResponse}
           onClose={handleCloseBatchDialog}
+        />
+      )}
+
+      {/* 功能权限请求对话框 */}
+      {featurePermissionRequest && (
+        <FeaturePermissionDialog
+          request={featurePermissionRequest}
+          onResponse={handleFeaturePermissionResponse}
+          onClose={handleCloseFeatureDialog}
         />
       )}
 
