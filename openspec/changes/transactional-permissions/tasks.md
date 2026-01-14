@@ -166,27 +166,28 @@
 ## Phase 3: 回滚策略库 (P2 - 高级功能)
 
 ### 3.1 文件操作回滚
-- [ ] 3.1.1 创建 `file-rollback.ts`
+- [x] 3.1.1 创建 `file-rollback.ts`
   - 实现 `copyWithRollback()`
   - 实现 `writeWithRollback()`
   - 实现 `mkdirWithRollback()`
   - 实现 `moveWithRollback()`
+  - 实现 `copyDirWithRollback()`
 - [ ] 3.1.2 添加单元测试
   - 测试复制回滚
   - 测试写入回滚
   - 测试目录创建回滚
   - 测试备份恢复
-- [ ] 3.1.3 添加错误处理
+- [x] 3.1.3 添加错误处理
   - 处理文件不存在
   - 处理权限错误
   - 处理磁盘空间不足
 
 ### 3.2 进程操作回滚
-- [ ] 3.2.1 创建 `process-rollback.ts`
+- [x] 3.2.1 创建 `process-rollback.ts`
   - 实现 `spawnWithRollback()`
   - 实现进程管理
   - 实现进程终止
-- [ ] 3.2.2 添加超时处理
+- [x] 3.2.2 添加超时处理
   - 默认5秒超时
   - 强制杀死 (SIGKILL)
   - 子进程清理
@@ -196,11 +197,14 @@
   - 测试子进程清理
 
 ### 3.3 配置修改回滚
-- [ ] 3.3.1 创建 `config-rollback.ts`
-  - 实现 `modifyWithRollback()`
+- [x] 3.3.1 创建 `config-rollback.ts`
+  - 实现 `modifyJsonWithRollback()`
+  - 实现 `modifyConfigValueWithRollback()`
+  - 实现 `modifyConfigValuesWithRollback()`
+  - 实现 `deleteConfigValueWithRollback()`
   - 支持 JSON 配置
   - 支持 YAML 配置 (可选)
-- [ ] 3.3.2 实现配置验证
+- [x] 3.3.2 实现配置验证
   - 回滚后验证配置有效性
   - 检测配置损坏
   - 自动恢复备份
@@ -210,21 +214,21 @@
   - 测试配置验证
 
 ### 3.4 创建回滚辅助工具
-- [ ] 3.4.1 创建 `rollback-helpers.ts`
+- [x] 3.4.1 创建 `index.ts` (统一导出)
   - 导出所有回滚辅助类
   - 提供统一接口
-- [ ] 3.4.2 编写回滚最佳实践文档
+- [x] 3.4.2 编写回滚最佳实践文档
   - 何时使用辅助类
   - 何时自定义回滚
   - 回滚失败处理
-- [ ] 3.4.3 创建回滚示例
+- [x] 3.4.3 创建回滚示例
   - 文件操作示例
   - 进程操作示例
   - 配置修改示例
 
 ### 3.5 文档和测试
-- [ ] 3.5.1 更新插件开发文档
-  - 添加回滚策略章节
+- [x] 3.5.1 更新插件开发文档
+  - 添加回滚策略章节 (在 TRANSACTION-SYSTEM.md 中)
   - 添加回滚辅助类参考
 - [ ] 3.5.2 编写集成测试
   - 测试完整事务流程
