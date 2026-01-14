@@ -12,6 +12,7 @@ import { PermissionRequestDialog } from './components/permissions/PermissionRequ
 import { BatchPermissionDialog } from './components/permissions/BatchPermissionDialog'
 import { FeaturePermissionDialog } from './components/permissions/FeaturePermissionDialog'
 import { PermissionDeniedToast } from './components/permissions/PermissionDeniedToast'
+import { GlobalExecutionIndicator } from './components/ui/GlobalExecutionIndicator'
 import { useUIStore } from './store/uiStore'
 import { usePluginStore } from './store/pluginStore'
 import {
@@ -25,6 +26,7 @@ import { CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { PluginPermission } from '@shared/types/plugin'
 import type { FeaturePermissionRequest } from './components/permissions/FeaturePermissionDialog'
+import type { Execution } from './components/ui/GlobalExecutionIndicator'
 
 // 权限请求类型(与 preload 中的定义保持一致)
 interface PermissionRequest {
@@ -67,6 +69,9 @@ function App(): React.JSX.Element {
     operation: string
     timestamp: number
   }>>([])
+
+  // 全局执行指示器状态
+  const [executions, setExecutions] = useState<Execution[]>([])
 
   // 处理导航到设置页面
   const handleOpenSettings = () => {
@@ -197,6 +202,116 @@ function App(): React.JSX.Element {
     }
   }, [permissionDeniedToasts])
 
+  // 添加执行项
+  const addExecution = useCallback((execution: Execution) => {
+    setExecutions(prev => {
+      // 检查是否已存在
+      const exists = prev.some(e => e.id === execution.id)
+      if (exists) return prev
+      return [...prev, execution]
+    })
+  }, [])
+
+  // 移除执行项
+  const removeExecution = useCallback((executionId: string) => {
+    setExecutions(prev => prev.filter(e => e.id !== executionId))
+  }, [])
+
+  // 处理超时
+  const handleTimeout = useCallback((execution: Execution) => {
+    console.warn('[App] 执行超时:', execution)
+    removeExecution(execution.id)
+    // TODO: 显示超时通知
+  }, [removeExecution])
+
+  // 监听插件方法执行事件
+  useEffect(() => {
+    const ipcRenderer = (window as any).electron?.ipcRenderer
+    if (!ipcRenderer) return
+
+    // 监听插件方法开始事件
+    const handlePluginMethodStart = (_event: any, data: {
+      pluginId: string
+      methodName: string
+      timestamp: number
+    }) => {
+      console.log('[App] 插件方法开始执行:', data)
+
+      // 获取插件名称
+      const pluginName = data.pluginId // TODO: 从插件元数据获取
+
+      addExecution({
+        id: `${data.pluginId}-${data.methodName}-${data.timestamp}`,
+        pluginId: data.pluginId,
+        pluginName: pluginName || data.pluginId,
+        operation: data.methodName,
+        startTime: data.timestamp,
+        timeout: 30000 // 默认30秒
+      })
+    }
+
+    // 监听插件方法结束事件
+    const handlePluginMethodEnd = (_event: any, data: {
+      pluginId: string
+      methodName: string
+      timestamp: number
+      success: boolean
+      error?: string
+    }) => {
+      console.log('[App] 插件方法执行完成:', data)
+
+      const executionId = `${data.pluginId}-${data.methodName}-${data.timestamp}`
+      removeExecution(executionId)
+    }
+
+    // 监听事务开始事件
+    const handleTransactionStart = (_event: any, data: {
+      transactionId: string
+      transactionName: string
+      pluginId: string
+      timestamp: number
+    }) => {
+      console.log('[App] 事务开始执行:', data)
+
+      addExecution({
+        id: data.transactionId,
+        pluginId: data.pluginId,
+        pluginName: data.pluginId, // TODO: 从插件元数据获取
+        operation: data.transactionName,
+        startTime: data.timestamp,
+        timeout: 30000 // 默认30秒
+      })
+    }
+
+    // 监听事务结束事件
+    const handleTransactionEnd = (_event: any, data: {
+      transactionId: string
+      timestamp: number
+      success: boolean
+      error?: string
+    }) => {
+      console.log('[App] 事务执行完成:', data)
+      removeExecution(data.transactionId)
+    }
+
+    // 注册监听器
+    ipcRenderer.on('plugin:method:start', handlePluginMethodStart)
+    ipcRenderer.on('plugin:method:end', handlePluginMethodEnd)
+    ipcRenderer.on('transaction:start', handleTransactionStart)
+    ipcRenderer.on('transaction:end', handleTransactionEnd)
+
+    console.log('[App] 已注册插件执行事件监听器')
+
+    // 清理函数
+    return () => {
+      ipcRenderer.removeListener('plugin:method:start', handlePluginMethodStart)
+      ipcRenderer.removeListener('plugin:method:end', handlePluginMethodEnd)
+      ipcRenderer.removeListener('transaction:start', handleTransactionStart)
+      ipcRenderer.removeListener('transaction:end', handleTransactionEnd)
+      console.log('[App] 已移除插件执行事件监听器')
+    }
+  }, [addExecution, removeExecution])
+
   // 处理单个权限响应
   const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => {
     console.log('发送权限响应:', { granted, sessionOnly, permanent, requestId: permissionRequest?.id })
@@ -309,6 +424,13 @@ function App(): React.JSX.Element {
   return (
     <ToastProvider>
       <MainLayout>{renderPage()}</MainLayout>
+
+      {/* 全局执行指示器 */}
+      <GlobalExecutionIndicator
+        executions={executions}
+        currentPluginId={activePluginId}
+        onTimeout={handleTimeout}
+      />
 
       {/* 权限请求对话框 */}
       {permissionRequest && (
