@@ -39,6 +39,36 @@ export interface PermissionRequestContext {
 }
 
 /**
+ * 功能权限定义
+ */
+export interface FeaturePermission {
+  permission: string
+  required: boolean
+  reason?: string
+}
+
+/**
+ * 增强的权限检查结果
+ */
+export interface EnhancedPermissionCheckResult {
+  canProceed: boolean
+  permanentlyDenied: Array<{
+    permission: string
+    required: boolean
+  }>
+  pending: Array<{
+    permission: string
+    required: boolean
+  }>
+  granted: Array<{
+    permission: string
+    permanent: boolean
+  }>
+  riskLevel: 'low' | 'medium' | 'high'
+  recommendation: 'auto_grant' | 'session_grant' | 'ask_user'
+}
+
+/**
  * 权限请求
  */
 export interface PermissionRequest {
@@ -105,6 +135,30 @@ interface PermissionApi {
     permanentlyDenied: string[]
     pending: string[]
     granted: string[]
+    error?: string
+  }>
+
+  /** 增强版批量检查权限 (支持风险评估和推荐策略) */
+  checkPermissionsEnhanced(request: {
+    pluginId: string
+    featurePermissions: FeaturePermission[]
+  }): Promise<{
+    success: boolean
+    canProceed: boolean
+    permanentlyDenied: Array<{
+      permission: string
+      required: boolean
+    }>
+    pending: Array<{
+      permission: string
+      required: boolean
+    }>
+    granted: Array<{
+      permission: string
+      permanent: boolean
+    }>
+    riskLevel: 'low' | 'medium' | 'high'
+    recommendation: 'auto_grant' | 'session_grant' | 'ask_user'
     error?: string
   }>
 
@@ -284,6 +338,9 @@ const permissionApi: PermissionApi = {
   getStatus: (request) => ipcRenderer.invoke('permission:getStatus', request),
   revoke: (request) => ipcRenderer.invoke('permission:revoke', request),
   clearPermanentDeny: (request) => ipcRenderer.invoke('permission:clearPermanentDeny', request),
+  checkPermissions: (request) => ipcRenderer.invoke('permission:checkPermissions', request),
+  checkPermissionsEnhanced: (request) => ipcRenderer.invoke('permission:checkPermissionsEnhanced', request),
+  requestPermissions: (request) => ipcRenderer.invoke('permission:requestPermissions', request),
   onRequest: (callback) => ipcRenderer.on('permission:request', (_, request) => callback(_, request)),
   onChanged: (callback) => ipcRenderer.on('permission:changed', (_, event) => callback(_, event)),
   sendResponse: (response) => ipcRenderer.send('permission:response', response),

@@ -567,6 +567,22 @@ export class IpcHandlers {
       }
     })
 
+    // 增强版批量检查权限 (支持风险评估和推荐策略)
+    ipcMain.handle('permission:checkPermissionsEnhanced', async (_event, request: any) => {
+      try {
+        const result = await this.permissionManager.checkPermissionsEnhanced(
+          request.pluginId,
+          request.featurePermissions
+        )
+        return { success: true, ...result }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
     // 批量请求权限
     ipcMain.handle('permission:requestPermissions', async (_event, request: any) => {
       try {
@@ -624,6 +640,7 @@ export class IpcHandlers {
     ipcMain.removeHandler('permission:revoke')
     ipcMain.removeHandler('permission:clearPermanentDeny')
     ipcMain.removeHandler('permission:checkPermissions')
+    ipcMain.removeHandler('permission:checkPermissionsEnhanced')
     ipcMain.removeHandler('permission:requestPermissions')
   }
 }

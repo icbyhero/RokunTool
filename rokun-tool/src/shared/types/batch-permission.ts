@@ -3,7 +3,7 @@
  * 用于事务性权限管理:先检查所有权限,再批量请求
  */
 
-import type { Permission } from './plugin'
+import type { PluginPermission } from './plugin'
 
 /**
  * 权限检查结果
@@ -17,17 +17,17 @@ export interface PermissionCheckResult {
   /**
    * 永久拒绝的权限列表
    */
-  permanentlyDenied: Permission[]
+  permanentlyDenied: PluginPermission[]
 
   /**
    * 待确认的权限列表(pending 状态)
    */
-  pending: Permission[]
+  pending: PluginPermission[]
 
   /**
    * 已授予的权限列表(granted 状态)
    */
-  granted: Permission[]
+  granted: PluginPermission[]
 }
 
 /**
@@ -37,7 +37,7 @@ export interface PermissionGrant {
   /**
    * 权限名称
    */
-  permission: Permission
+  permission: PluginPermission
 
   /**
    * 是否已授予

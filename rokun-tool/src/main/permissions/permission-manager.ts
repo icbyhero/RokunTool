@@ -479,9 +479,8 @@ export class PermissionManager {
 
     this.permissionStates.set(pluginId, state)
 
-    // 如果是永久拒绝,持久化到 PermissionService
+    // 如果是永久拒绝,持久化到状态存储
     if (permanent) {
-      await this.permissionService.denyPermissions(pluginId, [permission])
       await this.saveState(pluginId)
     } else {
       // 临时拒绝不持久化,下次启动应用时重置为 PENDING
@@ -550,7 +549,7 @@ export class PermissionManager {
   }
 
   /**
-   * 批量检查权限(不弹出对话框)
+   * 批量检查权限(不弹出对话框) - 简化版本
    * 用于插件在执行功能前预检查所有需要的权限
    *
    * @param pluginId 插件ID
@@ -596,6 +595,180 @@ export class PermissionManager {
       pending,
       granted
     }
+  }
+
+  /**
+   * 增强版批量检查权限 - 支持风险评估和推荐策略
+   * 用于插件在执行功能前预检查所有需要的权限,并提供智能推荐
+   *
+   * @param pluginId 插件ID
+   * @param featurePermissions 功能权限定义数组
+   * @returns 增强的权限检查结果
+   */
+  async checkPermissionsEnhanced(
+    pluginId: string,
+    featurePermissions: FeaturePermission[]
+  ): Promise<EnhancedPermissionCheckResult> {
+    const permanentlyDenied: Array<{ permission: Permission; required: boolean }> = []
+    const pending: Array<{ permission: Permission; required: boolean }> = []
+    const granted: Array<{ permission: Permission; permanent: boolean }> = []
+
+    // 第一步: 分类检查每个权限
+    for (const { permission, required } of featurePermissions) {
+      const status = this.checkPermission(pluginId, permission)
+
+      // 检查是否是会话权限
+      const isSessionPermission = this.sessionPermissionManager.has(pluginId, permission)
+      // 检查是否是永久权限
+      const isPermanentPermission = this.permissionService.hasPermission(pluginId, permission)
+
+      switch (status) {
+        case PermissionStatus.PERMANENTLY_DENIED:
+          permanentlyDenied.push({ permission, required })
+          break
+        case PermissionStatus.PENDING:
+        case PermissionStatus.DENIED:
+          pending.push({ permission, required })
+          break
+        case PermissionStatus.GRANTED:
+          granted.push({
+            permission,
+            permanent: isPermanentPermission && !isSessionPermission
+          })
+          break
+      }
+    }
+
+    // 第二步: 计算风险等级
+    const riskLevel = this.calculateRiskLevel(featurePermissions)
+
+    // 第三步: 生成推荐策略
+    const recommendation = this.generateRecommendation(
+      permanentlyDenied,
+      pending,
+      granted,
+      riskLevel
+    )
+
+    // 第四步: 判断是否可以继续执行
+    const canProceed = this.canProceed(permanentlyDenied, pending, granted)
+
+    return {
+      canProceed,
+      permanentlyDenied,
+      pending,
+      granted,
+      riskLevel,
+      recommendation
+    }
+  }
+
+  /**
+   * 计算权限组合的风险等级
+   */
+  private calculateRiskLevel(featurePermissions: FeaturePermission[]): 'low' | 'medium' | 'high' {
+    let highRiskCount = 0
+    let mediumRiskCount = 0
+
+    for (const { permission } of featurePermissions) {
+      if (this.isHighRiskPermission(permission)) {
+        highRiskCount++
+      } else if (this.isMediumRiskPermission(permission)) {
+        mediumRiskCount++
+      }
+    }
+
+    // 风险评估规则:
+    // - 有任何高风险权限 → high
+    // - 有2个及以上中风险权限 → high
+    // - 有1个中风险权限 → medium
+    // - 只有低风险权限 → low
+    if (highRiskCount > 0) {
+      return 'high'
+    }
+    if (mediumRiskCount >= 2) {
+      return 'high'
+    }
+    if (mediumRiskCount === 1) {
+      return 'medium'
+    }
+    return 'low'
+  }
+
+  /**
+   * 生成推荐策略
+   */
+  private generateRecommendation(
+    permanentlyDenied: Array<{ permission: Permission; required: boolean }>,
+    pending: Array<{ permission: Permission; required: boolean }>,
+    _granted: Array<{ permission: Permission; permanent: boolean }>,
+    riskLevel: 'low' | 'medium' | 'high'
+  ): 'auto_grant' | 'session_grant' | 'ask_user' {
+    // 如果有永久拒绝的必需权限,不应该继续
+    if (permanentlyDenied.some(p => p.required)) {
+      return 'ask_user'
+    }
+
+    // 如果没有待确认的权限,可以自动通过
+    if (pending.length === 0) {
+      return 'auto_grant'
+    }
+
+    // 根据风险等级决定推荐策略
+    if (riskLevel === 'low') {
+      // 低风险:建议会话级授权
+      return 'session_grant'
+    }
+
+    // 中高风险:需要用户明确确认
+    return 'ask_user'
+  }
+
+  /**
+   * 判断是否可以继续执行操作
+   */
+  private canProceed(
+    permanentlyDenied: Array<{ permission: Permission; required: boolean }>,
+    pending: Array<{ permission: Permission; required: boolean }>,
+    _granted: Array<{ permission: Permission; permanent: boolean }>
+  ): boolean {
+    // 如果有永久拒绝的必需权限,不能继续
+    if (permanentlyDenied.some(p => p.required)) {
+      return false
+    }
+
+    // 如果没有待确认的权限,可以继续
+    if (pending.length === 0) {
+      return true
+    }
+
+    // 其他情况需要用户确认,返回false
+    return false
+  }
+
+  /**
+   * 判断是否是高风险权限
+   */
+  private isHighRiskPermission(permission: Permission): boolean {
+    const highRiskPermissions: Set<Permission> = new Set([
+      'shell:execute',
+      'process:exec',
+      'fs:write'
+    ])
+    return highRiskPermissions.has(permission)
+  }
+
+  /**
+   * 判断是否是中风险权限
+   */
+  private isMediumRiskPermission(permission: Permission): boolean {
+    const mediumRiskPermissions: Set<Permission> = new Set([
+      'process:spawn',
+      'network:http',
+      'clipboard:read',
+      'config:write'
+    ])
+    return mediumRiskPermissions.has(permission)
   }
 
   /**
@@ -707,7 +880,7 @@ export class PermissionManager {
       } else {
         // 拒绝 - 拒绝所有请求的权限
         for (const permission of permissionsToRequest) {
-          await this.denyPermission(pluginId, permission, 'user', context)
+          await this.denyPermission(pluginId, permission, 'user', false, context)
         }
       }
 
