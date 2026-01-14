@@ -204,6 +204,59 @@ pnpm build
 
 MIT
 
+## 文档
+
+### 核心系统文档
+
+- [📘 权限系统指南](rokun-tool/docs/PERMISSION-SYSTEM.md) - 增强权限系统完整文档,包括风险评估和功能级权限请求
+- [📗 事务系统指南](docs/TRANSACTION-SYSTEM.md) - 事务执行引擎和回滚策略完整文档
+- [📙 事务式权限指南](docs/TRANSACTIONAL-PERMISSIONS-GUIDE.md) - 事务式权限设计指南
+- [📔 UI 设计系统](docs/UI-DESIGN-SYSTEM.md) - UI 组件和设计规范
+
+### 插件开发文档
+
+- [📘 插件权限最佳实践](docs/PLUGIN-PERMISSION-BEST-PRACTICES.md) - 如何在插件中正确使用权限系统
+- [📗 AI 助手使用指南](docs/AI-ASSISTANT-GUIDE.md) - Claude Code AI 助手使用说明
+
+### 插件文档
+
+- [微信分身插件](rokun-tool/docs/plugins/wechat-multi-instance/README.md) - 微信多开管理插件
+- [Rime 配置插件](rokun-tool/docs/plugins/rime-config/README.md) - Rime 输入法配置管理插件
+
+### 开发规范
+
+- [构建指南](rokun-tool/docs/BUILD.md) - 项目构建和打包说明
+
+## 系统架构
+
+### 已实现功能
+
+✅ **Phase 1: 权限预检查与增强** (已完成)
+- 增强版批量权限检查 API (`checkPermissionsEnhanced`)
+- 功能级权限请求对话框 (`FeaturePermissionDialog`)
+- 风险评估和智能推荐策略
+- 插件 Context API 扩展
+
+✅ **Phase 2: 事务执行引擎** (已完成)
+- `TransactionExecutor` - 原子性执行和自动回滚
+- `TransactionBuilder` - 流式 API 构建事务
+- `TransactionLogger` - 完整的事务日志系统
+- 自动进度报告集成
+
+✅ **Phase 3: 回滚策略库** (已完成)
+- 文件操作回滚 (复制、写入、移动、目录操作)
+- 进程操作回滚 (启动、终止、超时控制)
+- 配置修改回滚 (JSON 配置、验证、自动恢复)
+- 统一回滚辅助工具导出
+
+### 技术特性
+
+- 🔐 **安全**: 完整的权限系统,支持风险评估和永久拒绝
+- 🔄 **可靠**: 事务式操作,失败自动回滚
+- 📊 **可观测**: 完整的进度报告和操作日志
+- 🎨 **现代化**: React + TypeScript + shadcn/ui
+- 📦 **模块化**: 插件式架构,易于扩展
+
 ---
 
 **准备开始实施!** ✨
