@@ -6,28 +6,28 @@
 
 **文件**: `src/renderer/src/components/ui/GlobalExecutionIndicator.tsx`
 
-- [ ] 1.1.1 创建基础组件结构
+- [x] 1.1.1 创建基础组件结构
   - 函数式组件 + hooks
   - TypeScript 类型定义
   - Props 接口设计
 
-- [ ] 1.1.2 实现执行状态显示
+- [x] 1.1.2 实现执行状态显示
   - 显示执行中的插件列表
   - 显示插件图标和名称
   - 显示"正在执行..."文字
 
-- [ ] 1.1.3 添加动画效果
+- [x] 1.1.3 添加动画效果
   - 旋转的 loading spinner
   - 进入/退出动画 (fade-in/out)
   - 多插件切换动画
 
-- [ ] 1.1.4 样式实现
+- [x] 1.1.4 样式实现
   - 固定在右上角
   - 半透明背景
   - 浅色模式样式
   - 深色模式样式
 
-- [ ] 1.1.5 可访问性
+- [x] 1.1.5 可访问性
   - ARIA 标签
   - 屏幕阅读器支持
   - 键盘导航支持
@@ -36,22 +36,22 @@
 
 **文件**: `src/renderer/src/App.tsx`
 
-- [ ] 1.2.1 添加 GlobalExecutionIndicator 到顶层
+- [x] 1.2.1 添加 GlobalExecutionIndicator 到顶层
   - 在 App 组件中渲染
   - 传递必要的 props
 
-- [ ] 1.2.2 创建执行状态管理
+- [x] 1.2.2 创建执行状态管理
   - useState 管理执行列表
   - addExecution/removeExecution 方法
   - updateExecution 方法
 
-- [ ] 1.2.3 监听插件执行事件
+- [x] 1.2.3 监听插件执行事件
   - 监听 `plugin:method:start`
   - 监听 `plugin:method:end`
   - 监听 `transaction:start`
   - 监听 `transaction:end`
 
-- [ ] 1.2.4 清理监听器
+- [x] 1.2.4 清理监听器
   - useEffect cleanup
   - 避免内存泄漏
 
