@@ -57,7 +57,7 @@ interface BatchPermissionRequest {
 }
 
 function App(): React.JSX.Element {
-  const { currentPage, toasts, activePluginId, setCurrentPage } = useUIStore()
+  const { currentPage, toasts, activePluginId, setCurrentPage, addToast } = useUIStore()
   const { setCurrentPermissionRequest } = usePluginStore()
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null)
   const [batchPermissionRequest, setBatchPermissionRequest] = useState<BatchPermissionRequest | null>(null)
@@ -221,8 +221,15 @@ function App(): React.JSX.Element {
   const handleTimeout = useCallback((execution: Execution) => {
     console.warn('[App] 执行超时:', execution)
     removeExecution(execution.id)
-    // TODO: 显示超时通知
-  }, [removeExecution])
+
+    // 显示超时通知
+    const operationText = execution.operation ? `"${execution.operation}"` : '操作'
+    const timeout = execution.timeout || 30000
+    addToast(
+      `${execution.pluginName} ${operationText} 执行超时 (超过 ${(timeout / 1000).toFixed(0)}秒)`,
+      'warning'
+    )
+  }, [removeExecution, addToast])
 
   // 监听插件方法执行事件
   useEffect(() => {

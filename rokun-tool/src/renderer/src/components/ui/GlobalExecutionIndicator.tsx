@@ -11,7 +11,7 @@ export interface Execution {
   pluginIcon?: string // 插件图标
   operation?: string // 操作描述
   startTime: number // 开始时间
-  timeout?: number // 超时时间
+  timeout?: number // 超时时间(毫秒),0 或 undefined 表示禁用超时
 }
 
 /**
@@ -150,6 +150,9 @@ export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> =
 
       // 检查超时
       executions.forEach(exec => {
+        // 如果 timeout 为 0,则禁用超时检测
+        if (exec.timeout === 0) return
+
         const duration = now - exec.startTime
         const timeout = exec.timeout || 30000 // 默认30秒
 
