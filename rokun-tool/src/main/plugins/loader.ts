@@ -424,6 +424,107 @@ export class PluginLoader {
               reason,
               context
             )
+          },
+          checkPermissionsEnhanced: async (featurePermissions: Array<{
+            permission: Permission
+            required: boolean
+            reason?: string
+          }>) => {
+            return this.permissionManager.checkPermissionsEnhanced(
+              metadata.id,
+              featurePermissions
+            )
+          },
+          requestFeaturePermissions: async (
+            featureName: string,
+            featurePermissions: Array<{
+              permission: Permission
+              required: boolean
+              reason?: string
+            }>,
+            featureDescription?: string,
+            context?: {
+              operation: string
+              target?: string
+            }
+          ) => {
+            // 步骤1: 预检查权限
+            const checkResult = await this.permissionManager.checkPermissionsEnhanced(
+              metadata.id,
+              featurePermissions
+            )
+
+            // 步骤2: 如果有永久拒绝的必需权限,直接返回false
+            if (checkResult.permanentlyDenied.some(p => p.required)) {
+              console.warn(`[PluginContext] 功能 ${featureName} 有必需权限被永久拒绝`)
+              return false
+            }
+
+            // 步骤3: 如果可以继续执行 (所有权限已授予),直接返回true
+            if (checkResult.canProceed) {
+              return true
+            }
+
+            // 步骤4: 需要请求权限,发送功能权限请求到渲染进程
+            return new Promise<boolean>((resolve) => {
+              const { ipcMain } = require('electron')
+
+              // 发送功能权限请求事件
+              if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+                this.mainWindow.webContents.send('permission:featureRequest', {
+                  pluginId: metadata.id,
+                  pluginName: metadata.name || metadata.id,
+                  featureName,
+                  featureDescription,
+                  permissions: featurePermissions,
+                  riskLevel: checkResult.riskLevel,
+                  recommendation: checkResult.recommendation,
+                  context
+                })
+              }
+
+              // 监听响应
+              const handleResponse = (_event: any, response: {
+                pluginId: string
+                featureName: string
+                granted: boolean
+                sessionOnly: boolean
+              }) => {
+                if (response.pluginId === metadata.id && response.featureName === featureName) {
+                  ipcMain.removeListener('permission:featureResponse', handleResponse)
+
+                  if (response.granted) {
+                    if (response.sessionOnly) {
+                      // 会话级授权 - 授予所有请求的权限
+                      const sessionPermManager = (this.permissionManager as any).sessionPermissionManager
+                      if (sessionPermManager) {
+                        for (const { permission } of featurePermissions) {
+                          sessionPermManager.grant(metadata.id, permission)
+                        }
+                      }
+                      console.log(`[PluginContext] 功能 ${featureName} 获得会话级权限`)
+                    } else {
+                      // 永久授权 - 授予所有请求的权限
+                      for (const { permission } of featurePermissions) {
+                        this.permissionManager.grantPermission(metadata.id, permission, 'user', context)
+                      }
+                      console.log(`[PluginContext] 功能 ${featureName} 获得永久权限`)
+                    }
+                  }
+
+                  resolve(response.granted)
+                }
+              }
+
+              ipcMain.on('permission:featureResponse', handleResponse)
+
+              // 设置超时 (5分钟)
+              setTimeout(() => {
+                ipcMain.removeListener('permission:featureResponse', handleResponse)
+                console.error(`[PluginContext] 功能 ${featureName} 权限请求超时`)
+                resolve(false)
+              }, 5 * 60 * 1000)
+            })
           }
         },
         progress: {

@@ -245,6 +245,59 @@ export interface PluginAPI {
         permanent?: boolean
       }>
     }>
+
+    /**
+     * 增强版批量检查权限 - 支持风险评估和推荐策略
+     * 用于在执行功能前预检查所有需要的权限,并提供智能推荐
+     *
+     * @param featurePermissions 功能权限定义数组 (包含权限、是否必需、原因)
+     * @returns 增强的权限检查结果 (包含风险等级和推荐策略)
+     */
+    checkPermissionsEnhanced(featurePermissions: Array<{
+      permission: PluginPermission
+      required: boolean
+      reason?: string
+    }>): Promise<{
+      canProceed: boolean
+      permanentlyDenied: Array<{
+        permission: PluginPermission
+        required: boolean
+      }>
+      pending: Array<{
+        permission: PluginPermission
+        required: boolean
+      }>
+      granted: Array<{
+        permission: PluginPermission
+        permanent: boolean
+      }>
+      riskLevel: 'low' | 'medium' | 'high'
+      recommendation: 'auto_grant' | 'session_grant' | 'ask_user'
+    }>
+
+    /**
+     * 功能级权限请求 - 显示包含风险评估和推荐策略的对话框
+     * 用于在执行功能前一次性请求所有需要的权限
+     *
+     * @param featureName 功能名称 (如 "创建微信分身", "安装Rime配置")
+     * @param featureDescription 功能描述 (可选)
+     * @param featurePermissions 功能权限定义数组
+     * @param context 操作上下文 (可选)
+     * @returns 是否所有权限都已授予
+     */
+    requestFeaturePermissions(
+      featureName: string,
+      featurePermissions: Array<{
+        permission: PluginPermission
+        required: boolean
+        reason?: string
+      }>,
+      featureDescription?: string,
+      context?: {
+        operation: string
+        target?: string
+      }
+    ): Promise<boolean>
   }
 
   /** 进度反馈 API */
