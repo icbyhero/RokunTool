@@ -593,7 +593,7 @@ UI 会自动显示进度条和步骤信息。
 
 ## 完整示例
 
-### 示例1: 微信分身创建
+### 示例1: 微信副本创建
 
 ```typescript
 class WeChatPlugin {
@@ -603,7 +603,7 @@ class WeChatPlugin {
 
     const transaction = this.context.api.transaction.createBuilder()
       .id(`create-instance-${Date.now()}`)
-      .name('创建微信分身')
+      .name('创建微信副本')
       .pluginId(this.context.metadata.id)
       .addStep({
         name: '检查源应用',
@@ -652,7 +652,7 @@ class WeChatPlugin {
     const result = await this.context.api.transaction.execute(transaction)
 
     if (result.success) {
-      this.context.ui.showMessage('微信分身创建成功!', 'info')
+      this.context.ui.showMessage('微信副本创建成功!', 'info')
       return { success: true, path: targetPath }
     } else {
       this.context.ui.showMessage(`创建失败: ${result.error}`, 'error')

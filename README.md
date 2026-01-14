@@ -4,6 +4,8 @@
 
 创建一个基于 Electron 的跨平台插件式工具应用平台,提供统一的底层框架来加载和管理各种功能插件。
 
+**注意**: 本项目中的"微信创建副本"功能仅用于创建微信应用的独立副本供个人使用,请遵守微信用户协议。
+
 ## 技术架构选型 (已确认)
 
 ### 核心技术栈
@@ -15,7 +17,7 @@
 - **包管理器**: pnpm (节省空间,性能优化)
 
 ### 开发策略 (已确认)
-- **开发方式**: 渐进式开发 - 先实现插件系统和微信分身插件,验证架构可行性后再扩展
+- **开发方式**: 渐进式开发 - 先实现插件系统和微信创建副本插件,验证架构可行性后再扩展
 - **项目初始化**: 使用 electron-vite 模板 (现代化 Vite 构建速度,优秀的 TypeScript 支持)
 
 ## 开发阶段 (渐进式)
@@ -66,17 +68,17 @@
 
 **里程碑**: 可加载和运行测试插件的框架
 
-### Phase 3: 微信分身插件开发
+### Phase 3: 微信创建副本插件开发
 **目标**: 实现第一个实用插件
 
 1. **功能实现**
    - 迁移 `微信双开.sh` 到 Node.js
-   - 实现实例管理 API
+   - 实现副本管理 API
    - 进程监控和控制
 
 2. **UI 界面**
-   - 实例列表展示
-   - 创建/删除实例按钮
+   - 副本列表展示
+   - 创建/删除副本按钮
    - 状态指示器 (运行中/已停止)
    - 操作反馈和错误提示
 
@@ -86,7 +88,7 @@
    - 添加更新重建提示
    - 错误处理和重试机制
 
-**里程碑**: 功能完整可用的微信分身管理器
+**里程碑**: 功能完整可用的微信副本管理器
 
 ### Phase 4: 用户界面完善 (可选)
 **目标**: 优化用户体验,根据使用情况决定
@@ -131,19 +133,19 @@ RokunTool/
 │       └── stores/
 ├── plugins/               # 插件目录
 │   ├── core/              # 核心插件系统
-│   └── wechat-cloner/     # 微信分身插件
+│   └── wechat-cloner/     # 微信创建副本插件
 ├── package.json
 ├── tsconfig.json
 └── electron.vite.config.ts
 ```
 
-## 微信分身插件详细设计
+## 微信创建副本插件详细设计
 
 ### 功能映射 (从 shell 脚本到 Node.js)
 
 | Shell 命令 | Node.js 实现 | 说明 |
 |-----------|-------------|------|
-| `sudo rm -rf /Applications/WeChat2.app` | `fs.rm(path, { recursive: true })` | 删除旧分身 |
+| `sudo rm -rf /Applications/WeChat2.app` | `fs.rm(path, { recursive: true })` | 删除旧副本 |
 | `sudo cp -R /Applications/WeChat.app /Applications/WeChat2.app` | `fs.cp(src, dest, { recursive: true })` | 复制应用 |
 | `sudo /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.tencent.xinWeChat2"` | `plist.stringify()` | 修改 Bundle ID |
 | `sudo codesign --force --deep --sign - /Applications/WeChat2.app` | `exec('codesign', args)` | 代码签名 |
@@ -155,10 +157,10 @@ RokunTool/
    - 使用 `electron-sudo` 或 `sudo-prompt` 处理 sudo 命令
    - 或者修改应用所有者为当前用户避免每次输入密码
 
-2. **实例管理**
-   - 保存实例配置到 `~/Library/Application Support/RokunTool/wechat-instances.json`
-   - 支持多个分身: WeChat2, WeChat3, WeChat4...
-   - 每个 instance 有独立的 Bundle ID
+2. **副本管理**
+   - 保存副本配置到 `~/Library/Application Support/RokunTool/plugins/wechat-multi-instance/instances.json`
+   - 支持多个副本: WeChat2, WeChat3, WeChat4...
+   - 每个副本有独立的 Bundle ID
 
 3. **进程监控**
    - 使用 `ps-list` 检测运行中的微信实例
@@ -166,7 +168,7 @@ RokunTool/
 
 4. **更新保护**
    - 检测原始 WeChat.app 的修改时间
-   - 如果更新,提示用户重新创建分身
+   - 如果更新,提示用户重新创建副本
    - 备份用户数据目录
 
 ## 开发路径
@@ -176,7 +178,7 @@ RokunTool/
     ↓
 第2步: 插件系统核心 (PluginManager + Services)
     ↓
-第3步: 微信分身插件 (从 shell 脚本迁移到 GUI)
+第3步: 微信创建副本插件 (从 shell 脚本迁移到 GUI)
     ↓
 (可选) 第4步: UI 完善和主题系统
     ↓
@@ -220,7 +222,7 @@ MIT
 
 ### 插件文档
 
-- [微信分身插件](rokun-tool/docs/plugins/wechat-multi-instance/README.md) - 微信多开管理插件
+- [微信创建副本插件](rokun-tool/docs/plugins/wechat-multi-instance/README.md) - 创建微信应用独立副本
 - [Rime 配置插件](rokun-tool/docs/plugins/rime-config/README.md) - Rime 输入法配置管理插件
 
 ### 开发规范
