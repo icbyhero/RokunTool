@@ -127,14 +127,8 @@ class WeChatMultiInstancePlugin {
   }
 
   async createInstance() {
-    const totalSteps = 7
-
-    // 1. 开始进度报告
-    this.context.api.progress.start('创建分身', totalSteps)
-
     try {
-      // 2. 检查微信安装
-      this.context.api.progress.update(1, '检查微信安装', '正在检查微信是否已安装...')
+      // 1. 检查微信安装(不需要进度报告)
       const isInstalled = await this.checkWeChatInstalled()
 
       if (!isInstalled) {
@@ -149,9 +143,11 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`创建分身: ${instanceName}`)
 
-      // 3. 请求文件写入权限
-      this.context.api.progress.update(2, '请求权限', '请求文件写入权限...')
-      const hasPermission = await this.context.api.permission.request('fs:write', {
+      // 2. 先请求所有需要的权限(在进度报告之前)
+      this.context.ui.showMessage('正在请求创建分身所需的权限...', 'info')
+
+      // 请求文件写入权限
+      const hasWritePermission = await this.context.api.permission.request('fs:write', {
         reason: '创建微信分身需要复制和修改文件',
         context: {
           operation: '复制微信应用',
@@ -159,20 +155,11 @@ class WeChatMultiInstancePlugin {
         }
       })
 
-      if (!hasPermission) {
+      if (!hasWritePermission) {
         throw new Error('未授予文件写入权限，无法创建微信分身')
       }
 
-      // 4. 复制应用
-      this.context.api.progress.update(3, '复制微信应用', `正在复制到 ${instancePath}...`)
-      await this.copyWeChatApp(instancePath)
-
-      // 5. 修改 Bundle ID
-      this.context.api.progress.update(4, '修改应用标识', `修改 Bundle ID 为 ${bundleId}...`)
-      await this.modifyBundleId(instancePath, bundleId, instanceName)
-
-      // 6. 请求进程执行权限(用于签名)
-      this.context.api.progress.update(5, '请求权限', '请求进程执行权限...')
+      // 请求进程执行权限
       const hasExecPermission = await this.context.api.permission.request('process:exec', {
         reason: '签名微信分身需要执行系统命令',
         context: {
@@ -185,12 +172,24 @@ class WeChatMultiInstancePlugin {
         throw new Error('未授予进程执行权限，无法签名微信分身')
       }
 
-      // 7. 签名应用
-      this.context.api.progress.update(6, '签名应用', '正在对应用进行代码签名...')
+      // 3. 所有权限已授予,开始进度报告
+      const totalSteps = 5
+      this.context.api.progress.start('创建分身', totalSteps)
+
+      // 4. 复制应用
+      this.context.api.progress.update(1, '复制微信应用', `正在复制到 ${instancePath}...`)
+      await this.copyWeChatApp(instancePath)
+
+      // 5. 修改 Bundle ID
+      this.context.api.progress.update(2, '修改应用标识', `修改 Bundle ID 为 ${bundleId}...`)
+      await this.modifyBundleId(instancePath, bundleId, instanceName)
+
+      // 6. 签名应用
+      this.context.api.progress.update(3, '签名应用', '正在对应用进行代码签名...')
       await this.signApp(instancePath)
 
-      // 8. 修改微信显示名称为中文名+数字
-      this.context.api.progress.update(7, '修改显示名称', `设置为: 微信${instanceNumber}`)
+      // 7. 修改微信显示名称为中文名+数字
+      this.context.api.progress.update(4, '修改显示名称', `设置为: 微信${instanceNumber}`)
       await this.modifyWeChatDisplayName(instancePath, instanceNumber)
 
       // 在 /Applications 创建符号链接
@@ -222,7 +221,8 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`分身创建成功: ${instanceName}`)
 
-      // 9. 完成进度报告
+      // 8. 完成进度报告
+      this.context.api.progress.update(5, '完成', '分身创建完成')
       this.context.api.progress.complete('success')
 
       return instance
