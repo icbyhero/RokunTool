@@ -300,7 +300,7 @@ this.context.api.progress.complete('success')
 
 ### 代码变更
 
-**新增文件** (12个):
+**新增文件** (13个):
 1. `rokun-tool/src/main/transactions/transaction-executor.ts` - 事务执行器
 2. `rokun-tool/src/main/transactions/transaction-builder.ts` - 事务构建器
 3. `rokun-tool/src/main/transactions/transaction-logger.ts` - 事务日志
@@ -310,23 +310,25 @@ this.context.api.progress.complete('success')
 7. `rokun-tool/src/main/rollback/config-rollback.ts` - 配置回滚
 8. `rokun-tool/src/main/rollback/index.ts` - 统一导出
 9. `rokun-tool/src/renderer/src/components/permissions/FeaturePermissionDialog.tsx` - 权限对话框
-10. `docs/TRANSACTION-SYSTEM.md` - 事务系统文档
-11. `openspec/changes/transactional-permissions/proposal.md` - 提案文档
-12. `openspec/changes/transactional-permissions/tasks.md` - 任务清单
+10. `rokun-tool/src/renderer/src/components/transactions/TransactionLogsViewer.tsx` - 事务日志查看器
+11. `docs/TRANSACTION-SYSTEM.md` - 事务系统文档
+12. `openspec/changes/transactional-permissions/proposal.md` - 提案文档
+13. `openspec/changes/transactional-permissions/tasks.md` - 任务清单
 
-**修改文件** (8个):
+**修改文件** (9个):
 1. `rokun-tool/src/main/permissions/permission-manager.ts` - 权限管理器
-2. `rokun-tool/src/main/ipc/handlers.ts` - IPC handlers
-3. `rokun-tool/src/preload/ipc.ts` - Preload API
-4. `rokun-tool/src/main/plugins/loader.ts` - 插件加载器
-5. `rokun-tool/src/shared/types/plugin.ts` - 插件类型
-6. `rokun-tool/docs/PERMISSION-SYSTEM.md` - 权限系统文档
-7. `plugins/rime-config/index.js` - Rime 插件 (进度报告)
-8. `README.md` - 项目主文档
+2. `rokun-tool/src/main/ipc/handlers.ts` - IPC handlers (添加事务日志查询)
+3. `rokun-tool/src/preload/ipc.ts` - Preload API (添加 TransactionApi)
+4. `rokun-tool/src/main/transactions/transaction-logger.ts` - 添加查询函数
+5. `rokun-tool/src/main/transactions/index.ts` - 修复重复导出
+6. `rokun-tool/src/main/plugins/loader.ts` - 插件加载器
+7. `rokun-tool/src/shared/types/plugin.ts` - 插件类型
+8. `rokun-tool/src/renderer/src/components/pages/Settings.tsx` - 集成事务日志查看器
+9. `rokun-tool/docs/PERMISSION-SYSTEM.md` - 权限系统文档
 
 **代码量估算**:
-- 新增代码: ~2500 行 (TypeScript/TSX)
-- 文档: ~800 行 (Markdown)
+- 新增代码: ~2700 行 (TypeScript/TSX)
+- 文档: ~900 行 (Markdown)
 - 测试: 0 行 (待补充)
 
 ### 提交历史
@@ -568,11 +570,36 @@ const result = await this.context.api.transaction.execute(transaction)
 - [ ] 测试回滚性能
 - [ ] 确保无显著开销
 
-### UI 增强 (P4 - 未来)
+### UI 增强 (P4 - 可选) ✅ 已完成
 
-- [ ] 事务日志查看器
-- [ ] 设置页面中的事务历史
-- [ ] 进度报告改进 (百分比显示)
+#### 4.1 事务日志查看器
+
+**文件**: `rokun-tool/src/renderer/src/components/transactions/TransactionLogsViewer.tsx`
+
+**功能特性**:
+- ✅ 显示事务摘要列表 (最近7天)
+- ✅ 事务状态指示器 (成功/失败/执行中)
+- ✅ 可展开查看详细日志
+- ✅ 日志事件翻译 (transaction_start → "开始事务")
+- ✅ 时间戳格式化
+- ✅ 错误日志高亮显示
+- ✅ 深色模式完整支持
+- ✅ 刷新按钮
+
+**API集成**:
+- `transaction.getSummaries()` - 获取事务摘要列表
+- `transaction.getLogs({ transactionId })` - 获取特定事务的详细日志
+
+#### 4.2 设置页面集成
+
+**文件**: `rokun-tool/src/renderer/src/components/pages/Settings.tsx`
+
+**实现**:
+- ✅ 在权限设置之后添加事务日志查看器
+- ✅ 用户可在设置页面直接查看事务历史
+
+**相关提交**:
+- `COMMIT_ID` - feat: 实现事务日志查看器 UI (Phase 2.3.4-2.3.5)
 
 ---
 

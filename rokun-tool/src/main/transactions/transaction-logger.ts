@@ -219,7 +219,121 @@ export async function queryTransactionLogs(params: {
   /** 结束日期 */
   endDate?: string
 }): Promise<TransactionLogEntry[]> {
-  // TODO: 实现日志查询功能
-  // 这个功能需要在后续版本中实现
-  return []
+  const { app } = await import('electron')
+  const { promises: fs } = await import('fs')
+  const { join } = await import('path')
+
+  const userDataPath = app.getPath('userData')
+  const logDir = join(userDataPath, 'logs', 'transactions')
+
+  // 确定日期范围
+  const endDate = params.endDate || new Date().toISOString().split('T')[0]
+  const startDate = params.startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // 收集需要查询的日志文件
+  const logFiles: string[] = []
+  const currentDate = new Date(startDate)
+
+  while (currentDate <= new Date(endDate)) {
+    const dateStr = currentDate.toISOString().split('T')[0]
+    const logFile = join(logDir, `${dateStr}.jsonl`)
+    logFiles.push(logFile)
+
+    // 前进一天
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+
+  // 读取并解析日志
+  const allLogs: TransactionLogEntry[] = []
+
+  for (const logFile of logFiles) {
+    try {
+      const content = await fs.readFile(logFile, 'utf-8')
+      const lines = content.trim().split('\n')
+
+      for (const line of lines) {
+        if (!line) continue
+
+        try {
+          const entry: TransactionLogEntry = JSON.parse(line)
+
+          // 按条件过滤
+          if (params.transactionId && entry.transactionId !== params.transactionId) {
+            continue
+          }
+
+          if (params.pluginId && entry.data.pluginId !== params.pluginId) {
+            continue
+          }
+
+          allLogs.push(entry)
+        } catch (error) {
+          console.error(`Failed to parse log line: ${line}`, error)
+        }
+      }
+    } catch (error) {
+      // 文件不存在或无法读取,忽略
+      continue
+    }
+  }
+
+  return allLogs
+}
+
+/**
+ * 获取事务摘要列表
+ */
+export async function getTransactionSummaries(params?: {
+  /** 插件 ID */
+  pluginId?: string
+  /** 开始日期 */
+  startDate?: string
+  /** 结束日期 */
+  endDate?: string
+}): Promise<{
+  transactionId: string
+  transactionName: string
+  pluginId: string
+  startTime: string
+  endTime?: string
+  status: 'executing' | 'success' | 'failed'
+  stepCount: number
+}[]> {
+  const logs = await queryTransactionLogs(params || {})
+
+  // 按事务ID分组
+  const transactions = new Map<string, any>()
+
+  for (const log of logs) {
+    if (!transactions.has(log.transactionId)) {
+      transactions.set(log.transactionId, {
+        transactionId: log.transactionId,
+        transactionName: log.data.transactionName || 'Unknown',
+        pluginId: log.data.pluginId || 'unknown',
+        startTime: log.timestamp,
+        endTime: undefined,
+        status: 'executing' as const,
+        stepCount: 0
+      })
+    }
+
+    const transaction = transactions.get(log.transactionId)!
+
+    if (log.event === 'transaction_start') {
+      transaction.startTime = log.timestamp
+      transaction.transactionName = log.data.transactionName || transaction.transactionName
+      transaction.pluginId = log.data.pluginId || transaction.pluginId
+    } else if (log.event === 'transaction_success') {
+      transaction.status = 'success'
+      transaction.endTime = log.timestamp
+    } else if (log.event === 'transaction_failed') {
+      transaction.status = 'failed'
+      transaction.endTime = log.timestamp
+    } else if (log.event === 'step_success') {
+      transaction.stepCount = Math.max(transaction.stepCount, (log.data.stepIndex || 0) + 1)
+    }
+  }
+
+  return Array.from(transactions.values())
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
 }

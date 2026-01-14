@@ -601,6 +601,34 @@ export class IpcHandlers {
       }
     })
 
+    // 事务日志查询
+    ipcMain.handle('transaction:getLogs', async (_event, request: any) => {
+      try {
+        const { queryTransactionLogs } = await import('../transactions/transaction-logger')
+        const logs = await queryTransactionLogs(request.params || {})
+        return { success: true, logs }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
+    // 事务摘要查询
+    ipcMain.handle('transaction:getSummaries', async (_event, request: any) => {
+      try {
+        const { getTransactionSummaries } = await import('../transactions/transaction-logger')
+        const summaries = await getTransactionSummaries(request.params || {})
+        return { success: true, summaries }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    })
+
     // 注意: permission:response 事件由 PermissionManager 自己处理
     // 不需要在这里添加监听器,避免与 PermissionManager.waitForResponse() 冲突
   }
@@ -642,5 +670,9 @@ export class IpcHandlers {
     ipcMain.removeHandler('permission:checkPermissions')
     ipcMain.removeHandler('permission:checkPermissionsEnhanced')
     ipcMain.removeHandler('permission:requestPermissions')
+
+    // 移除事务日志相关的处理器
+    ipcMain.removeHandler('transaction:getLogs')
+    ipcMain.removeHandler('transaction:getSummaries')
   }
 }

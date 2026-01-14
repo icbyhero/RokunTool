@@ -5,6 +5,7 @@ import { Label } from '../ui/Label'
 import { useUIStore } from '../../store/uiStore'
 import { Moon, Sun, Save } from 'lucide-react'
 import { PermissionSettings } from '../permissions/PermissionSettings'
+import { TransactionLogsViewer } from '../transactions/TransactionLogsViewer'
 
 export function Settings() {
   const { theme, toggleTheme, addToast } = useUIStore()
@@ -127,6 +128,8 @@ export function Settings() {
         </Card>
 
         <PermissionSettings />
+
+        <TransactionLogsViewer />
 
         <Card>
           <CardHeader>

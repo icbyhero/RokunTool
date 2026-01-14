@@ -10,7 +10,6 @@ export {
   type Transaction,
   type TransactionOptions,
   type TransactionResult,
-  type TransactionLogger,
   type ProgressReporter
 } from './transaction-executor'
 
@@ -22,5 +21,6 @@ export {
 export {
   TransactionLogger,
   type TransactionLogEntry,
-  queryTransactionLogs
+  queryTransactionLogs,
+  getTransactionSummaries
 } from './transaction-logger'

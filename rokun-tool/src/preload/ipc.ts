@@ -288,6 +288,48 @@ interface NotificationApi {
 }
 
 /**
+ * 事务日志API
+ */
+interface TransactionApi {
+  /** 获取事务日志 */
+  getLogs(params?: {
+    transactionId?: string
+    pluginId?: string
+    startDate?: string
+    endDate?: string
+  }): Promise<{
+    success: boolean
+    logs?: Array<{
+      transactionId: string
+      timestamp: string
+      level: 'info' | 'success' | 'error'
+      event: string
+      data: any
+    }>
+    error?: string
+  }>
+
+  /** 获取事务摘要列表 */
+  getSummaries(params?: {
+    pluginId?: string
+    startDate?: string
+    endDate?: string
+  }): Promise<{
+    success: boolean
+    summaries?: Array<{
+      transactionId: string
+      transactionName: string
+      pluginId: string
+      startTime: string
+      endTime?: string
+      status: 'executing' | 'success' | 'failed'
+      stepCount: number
+    }>
+    error?: string
+  }>
+}
+
+/**
  * 实现插件API
  */
 const pluginApi: PluginApi = {
@@ -330,6 +372,14 @@ const notificationApi: NotificationApi = {
 }
 
 /**
+ * 实现事务日志API
+ */
+const transactionApi: TransactionApi = {
+  getLogs: (params) => ipcRenderer.invoke('transaction:getLogs', { params }),
+  getSummaries: (params) => ipcRenderer.invoke('transaction:getSummaries', { params })
+}
+
+/**
  * 实现权限管理API
  */
 const permissionApi: PermissionApi = {
@@ -355,6 +405,7 @@ export interface ElectronApi {
   clipboard: ClipboardApi
   notification: NotificationApi
   permission: PermissionApi
+  transaction: TransactionApi
   quit: () => void
 }
 
@@ -363,6 +414,7 @@ export const electronApi: ElectronApi = {
   clipboard: clipboardApi,
   notification: notificationApi,
   permission: permissionApi,
+  transaction: transactionApi,
   quit: () => ipcRenderer.send('app-quit')
 }
 
