@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 
 /**
  * 插件执行状态
@@ -21,6 +21,7 @@ interface GlobalExecutionIndicatorProps {
   executions: Execution[]
   currentPluginId?: string // 当前页面的插件 ID
   onTimeout?: (execution: Execution) => void
+  onClose?: () => void // 关闭指示器回调
 }
 
 /**
@@ -115,7 +116,7 @@ function getVisibleExecutions(executions: Execution[], isMobile: boolean) {
  * - 动画效果
  */
 export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> = React.memo(
-  ({ executions, currentPluginId, onTimeout }) => {
+  ({ executions, currentPluginId, onTimeout, onClose }) => {
     const [durations, setDurations] = useState<Record<string, number>>({})
     const [lastUpdateTime, setLastUpdateTime] = useState(0)
 
@@ -181,15 +182,28 @@ export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> =
       >
         <div className="bg-black/80 dark:bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50 dark:border-gray-200/50 min-w-[200px] max-w-[400px]">
           {/* Header */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700/50 dark:border-gray-200/50">
-            <Loader2 className="h-4 w-4 text-red-500 animate-spin" />
-            <span className="text-sm font-semibold text-white dark:text-gray-900">
-              正在执行...
-            </span>
-            {executions.length > 1 && (
-              <span className="text-xs text-gray-400 dark:text-gray-600">
-                ({executions.length})
+          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-700/50 dark:border-gray-200/50">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 text-red-500 animate-spin" />
+              <span className="text-sm font-semibold text-white dark:text-gray-900">
+                正在执行...
               </span>
+              {executions.length > 1 && (
+                <span className="text-xs text-gray-400 dark:text-gray-600">
+                  ({executions.length})
+                </span>
+              )}
+            </div>
+
+            {/* Close Button */}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-gray-400 dark:text-gray-600 hover:text-gray-200 dark:hover:text-gray-800 transition-colors"
+                aria-label="关闭执行指示器"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
           </div>
 

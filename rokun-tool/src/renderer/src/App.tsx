@@ -58,7 +58,7 @@ interface BatchPermissionRequest {
 
 function App(): React.JSX.Element {
   const { currentPage, toasts, activePluginId, setCurrentPage, addToast } = useUIStore()
-  const { setCurrentPermissionRequest } = usePluginStore()
+  const { setCurrentPermissionRequest, plugins } = usePluginStore()
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null)
   const [batchPermissionRequest, setBatchPermissionRequest] = useState<BatchPermissionRequest | null>(null)
   const [featurePermissionRequest, setFeaturePermissionRequest] = useState<FeaturePermissionRequest | null>(null)
@@ -72,6 +72,12 @@ function App(): React.JSX.Element {
 
   // 全局执行指示器状态
   const [executions, setExecutions] = useState<Execution[]>([])
+
+  // 获取插件名称的辅助函数
+  const getPluginName = useCallback((pluginId: string): string => {
+    const plugin = plugins.find(p => p.id === pluginId)
+    return plugin?.name || pluginId
+  }, [plugins])
 
   // 处理导航到设置页面
   const handleOpenSettings = () => {
@@ -231,6 +237,12 @@ function App(): React.JSX.Element {
     )
   }, [removeExecution, addToast])
 
+  // 处理关闭指示器
+  const handleCloseIndicator = useCallback(() => {
+    // 清空所有执行项
+    setExecutions([])
+  }, [])
+
   // 监听插件方法执行事件
   useEffect(() => {
     const ipcRenderer = (window as any).electron?.ipcRenderer
@@ -245,12 +257,12 @@ function App(): React.JSX.Element {
       console.log('[App] 插件方法开始执行:', data)
 
       // 获取插件名称
-      const pluginName = data.pluginId // TODO: 从插件元数据获取
+      const pluginName = getPluginName(data.pluginId)
 
       addExecution({
         id: `${data.pluginId}-${data.methodName}-${data.timestamp}`,
         pluginId: data.pluginId,
-        pluginName: pluginName || data.pluginId,
+        pluginName: pluginName,
         operation: data.methodName,
         startTime: data.timestamp,
         timeout: 30000 // 默认30秒
@@ -280,10 +292,12 @@ function App(): React.JSX.Element {
     }) => {
       console.log('[App] 事务开始执行:', data)
 
+      const pluginName = getPluginName(data.pluginId)
+
       addExecution({
         id: data.transactionId,
         pluginId: data.pluginId,
-        pluginName: data.pluginId, // TODO: 从插件元数据获取
+        pluginName: pluginName,
         operation: data.transactionName,
         startTime: data.timestamp,
         timeout: 30000 // 默认30秒
@@ -317,7 +331,7 @@ function App(): React.JSX.Element {
       ipcRenderer.removeListener('transaction:end', handleTransactionEnd)
       console.log('[App] 已移除插件执行事件监听器')
     }
-  }, [addExecution, removeExecution])
+  }, [addExecution, removeExecution, getPluginName])
 
   // 处理单个权限响应
   const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => {
@@ -437,6 +451,7 @@ function App(): React.JSX.Element {
         executions={executions}
         currentPluginId={activePluginId}
         onTimeout={handleTimeout}
+        onClose={handleCloseIndicator}
       />
 
       {/* 权限请求对话框 */}
