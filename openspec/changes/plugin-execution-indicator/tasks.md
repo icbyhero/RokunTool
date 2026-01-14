@@ -86,17 +86,21 @@
 
 **文件**: `src/preload/ipc.ts`
 
-- [ ] 2.1.1 包装 plugin.callMethod API
+- [x] 2.1.1 包装 plugin.callMethod API
   - 添加自动事件发送逻辑
   - 保持原有 API 不变
 
-- [ ] 2.1.2 发送开始事件
+- [x] 2.1.2 发送开始事件
   - 调用前发送 `plugin:method:start`
   - 包含时间戳
 
-- [ ] 2.1.3 发送结束事件
+- [x] 2.1.3 发送结束事件
   - 返回后发送 `plugin:method:end`
   - 包含执行结果和时间戳
+
+- [x] 2.1.4 错误处理 (新增)
+  - 失败时也发送 `plugin:method:end`
+  - 包含错误信息
 
 ### 2.2 事务执行集成
 
@@ -118,7 +122,7 @@
 
 **文件**: `src/renderer/src/components/ui/GlobalExecutionIndicator.tsx`
 
-- [ ] 2.3.1 添加超时检测
+- [x] 2.3.1 添加超时检测
   - 使用 setTimeout 检测超时
   - 默认 30 秒超时
 
