@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Loader2, X } from 'lucide-react'
 
 /**
@@ -39,17 +39,24 @@ const ExecutionItem: React.FC<ExecutionItemProps> = React.memo(({ execution, dur
   }
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 dark:hover:bg-black/5 transition-colors">
+    <div className="group flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 dark:hover:bg-black/5 transition-all duration-200 cursor-default">
       {/* Loading Spinner */}
-      <Loader2 className="h-3.5 w-3.5 text-red-500 animate-spin" />
+      <Loader2 className="h-3.5 w-3.5 text-red-500 animate-spin group-hover:scale-110 transition-transform duration-200" />
 
       {/* Plugin Name */}
-      <span className="text-sm font-medium text-gray-900 dark:text-white flex-1">
+      <span className="text-sm font-medium text-gray-900 dark:text-white flex-1 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors duration-200">
         {execution.pluginName}
       </span>
 
+      {/* Operation (optional) */}
+      {execution.operation && (
+        <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">
+          {execution.operation}
+        </span>
+      )}
+
       {/* Execution Time */}
-      <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+      <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">
         {formatDuration(duration)}
       </span>
     </div>
@@ -92,9 +99,9 @@ function sortExecutions(executions: Execution[], currentPluginId?: string): Exec
  * 获取可见的执行项
  * 桌面端最多显示3个,移动端最多显示2个
  */
-function getVisibleExecutions(executions: Execution[], isMobile: boolean) {
+function getVisibleExecutions(executions: Execution[], isMobile: boolean, currentPluginId?: string) {
   const maxVisible = isMobile ? 2 : 3
-  const sorted = sortExecutions(executions)
+  const sorted = sortExecutions(executions, currentPluginId)
 
   if (sorted.length <= maxVisible) {
     return { visible: sorted, hidden: [] }
@@ -165,8 +172,8 @@ export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> =
 
     // 计算可见的执行项
     const { visible, hidden } = useMemo(() => {
-      return getVisibleExecutions(executions, isMobile)
-    }, [executions, isMobile])
+      return getVisibleExecutions(executions, isMobile, currentPluginId)
+    }, [executions, isMobile, currentPluginId])
 
     // 如果没有执行项,不显示
     if (executions.length === 0) {
@@ -178,9 +185,9 @@ export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> =
         role="status"
         aria-live="polite"
         aria-label="插件执行状态"
-        className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-right duration-300"
+        className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300 ease-out"
       >
-        <div className="bg-black/80 dark:bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50 dark:border-gray-200/50 min-w-[200px] max-w-[400px]">
+        <div className="bg-black/80 dark:bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50 dark:border-gray-200/50 min-w-[200px] max-w-[400px] animate-in zoom-in-95 duration-200 ease-out">
           {/* Header */}
           <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-700/50 dark:border-gray-200/50">
             <div className="flex items-center gap-2">
@@ -199,7 +206,7 @@ export const GlobalExecutionIndicator: React.FC<GlobalExecutionIndicatorProps> =
             {onClose && (
               <button
                 onClick={onClose}
-                className="text-gray-400 dark:text-gray-600 hover:text-gray-200 dark:hover:text-gray-800 transition-colors"
+                className="text-gray-400 dark:text-gray-600 hover:text-gray-200 dark:hover:text-gray-800 hover:bg-white/10 dark:hover:bg-black/10 rounded p-0.5 transition-all duration-200"
                 aria-label="关闭执行指示器"
               >
                 <X className="h-4 w-4" />
