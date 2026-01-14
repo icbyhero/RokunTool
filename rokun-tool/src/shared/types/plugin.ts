@@ -324,6 +324,76 @@ export interface PluginAPI {
      */
     complete(result: 'success' | 'error', error?: string): void
   }
+
+  /** 事务 API */
+  transaction: {
+    /**
+     * 执行事务 - 原子性执行多个操作步骤,失败时自动回滚
+     *
+     * @param transaction 事务对象 (包含步骤和配置)
+     * @returns 事务执行结果
+     *
+     * @example
+     * ```typescript
+     * const result = await this.context.api.transaction.execute({
+     *   id: 'install-recipe-123',
+     *   name: '安装 Rime 配置方案',
+     *   pluginId: this.context.metadata.id,
+     *   steps: [
+     *     {
+     *       name: '检查冲突',
+     *       execute: async () => { ... },
+     *       rollback: async () => { ... }
+     *     },
+     *     {
+     *       name: '安装方案',
+     *       execute: async () => { ... },
+     *       rollback: async () => { ... }
+     *     }
+     *   ]
+     * })
+     *
+     * if (result.success) {
+     *   this.context.ui.showMessage('安装成功!', 'info')
+     * } else {
+     *   this.context.ui.showMessage(`安装失败: ${result.error}`, 'error')
+     * }
+     * ```
+     */
+    execute(transaction: import('../../main/transactions').Transaction): Promise<import('../../main/transactions').TransactionResult>
+
+    /**
+     * 创建事务构建器 - 提供流式 API 来构建复杂事务
+     *
+     * @returns 事务构建器实例
+     *
+     * @example
+     * ```typescript
+     * const transaction = this.context.api.transaction.createBuilder()
+     *   .id('create-instance-123')
+     *   .name('创建微信分身')
+     *   .pluginId(this.context.metadata.id)
+     *   .addStep({
+     *     name: '检查源文件',
+     *     execute: async () => { ... }
+     *   })
+     *   .addStep({
+     *     name: '复制应用',
+     *     execute: async () => { ... },
+     *     rollback: async () => { ... }
+     *   })
+     *   .addStep({
+     *     name: '修改配置',
+     *     execute: async () => { ... },
+     *     rollback: async () => { ... }
+     *   })
+     *   .build()
+     *
+     * const result = await this.execute(transaction)
+     * ```
+     */
+    createBuilder(): import('../../main/transactions').TransactionBuilder
+  }
 }
 
 /**

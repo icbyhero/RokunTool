@@ -573,6 +573,75 @@ export class PluginLoader {
             // 清除状态
             this.clearProgressState(metadata.id)
           }
+        },
+        transaction: {
+          execute: async (transaction: any) => {
+            // 动态导入事务模块
+            const { TransactionExecutor, TransactionLogger } = await import('../transactions')
+
+            // 创建进度报告器
+            const progressReporter = {
+              start: (message: string, totalSteps: number) => {
+                this.progressStates.set(metadata.id, {
+                  operation: message,
+                  currentStep: 0,
+                  totalSteps,
+                  stepName: '',
+                  logs: []
+                })
+                this.sendOperationProgressEvent(metadata.id, {
+                  operation: message,
+                  currentStep: 0,
+                  totalSteps,
+                  stepName: '',
+                  status: 'running',
+                  logs: []
+                })
+              },
+              update: (message: string, currentStep: number) => {
+                const currentState = this.progressStates.get(metadata.id)
+                if (currentState) {
+                  this.sendOperationProgressEvent(metadata.id, {
+                    operation: currentState.operation,
+                    currentStep,
+                    totalSteps: currentState.totalSteps,
+                    stepName: message,
+                    status: 'running',
+                    logs: currentState.logs || []
+                  })
+                }
+              },
+              complete: (status: 'success' | 'error', message?: string) => {
+                const currentState = this.progressStates.get(metadata.id)
+                if (currentState) {
+                  this.sendOperationProgressEvent(metadata.id, {
+                    operation: currentState.operation,
+                    currentStep: currentState.currentStep,
+                    totalSteps: currentState.totalSteps,
+                    stepName: currentState.stepName,
+                    status,
+                    error: message,
+                    logs: currentState.logs || []
+                  })
+                }
+                this.clearProgressState(metadata.id)
+              }
+            }
+
+            // 创建事务日志记录器
+            const logger = new TransactionLogger()
+
+            // 创建执行器
+            const executor = new TransactionExecutor(logger, progressReporter)
+
+            // 执行事务
+            return executor.execute(transaction)
+          },
+          createBuilder: () => {
+            // 动态导入事务模块
+            const { createTransactionBuilder } = require('../transactions')
+            return createTransactionBuilder()
+          }
         }
       }
     }
