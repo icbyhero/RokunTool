@@ -296,6 +296,138 @@ options: {
 }
 ```
 
+### 使用回滚辅助工具
+
+RokunTool 提供了预构建的回滚辅助类,可以简化回滚逻辑的编写。
+
+#### 导入回滚辅助工具
+
+```typescript
+import {
+  copyWithRollback,
+  writeWithRollback,
+  mkdirWithRollback,
+  modifyJsonWithRollback,
+  spawnWithRollback
+} from '@/main/rollback'
+```
+
+#### 文件操作回滚示例
+
+```typescript
+.addStep({
+  name: '复制配置文件',
+  execute: async () => {
+    // copyWithRollback 返回回滚函数
+    this.rollbackStack.push(await copyWithRollback(
+      '/path/to/source/config.json',
+      '/path/to/target/config.json'
+    ))
+  },
+  rollback: async () => {
+    // 执行栈中的所有回滚
+    for (const rollback of this.rollbackStack.reverse()) {
+      await rollback()
+    }
+  }
+})
+```
+
+#### 更简洁的模式 - 使用闭包
+
+```typescript
+let rollbackCopy: (() => void) | null = null
+
+.addStep({
+  name: '复制配置文件',
+  execute: async () => {
+    rollbackCopy = await copyWithRollback(
+      '/path/to/source/config.json',
+      '/path/to/target/config.json'
+    )
+  },
+  rollback: async () => {
+    if (rollbackCopy) {
+      await rollbackCopy()
+    }
+  }
+})
+```
+
+#### 配置修改回滚示例
+
+```typescript
+let rollbackConfig: (() => Promise<void>) | null = null
+
+.addStep({
+  name: '修改应用配置',
+  execute: async () => {
+    rollbackConfig = await modifyJsonWithRollback(
+      '/path/to/config.json',
+      (config) => {
+        config.server.port = 8080
+        config.server.host = 'localhost'
+        return config
+      },
+      {
+        validate: (c) => c.server && typeof c.server.port === 'number'
+      }
+    )
+  },
+  rollback: async () => {
+    if (rollbackConfig) {
+      await rollbackConfig()
+    }
+  }
+})
+```
+
+#### 进程启动回滚示例
+
+```typescript
+let rollbackProcess: (() => Promise<void>) | null = null
+let serverPid: number | null = null
+
+.addStep({
+  name: '启动服务器',
+  execute: async () => {
+    const { pid, rollback } = await spawnWithRollback(
+      'node',
+      ['server.js'],
+      { cwd: '/path/to/server' }
+    )
+    serverPid = pid
+    rollbackProcess = rollback
+  },
+  rollback: async () => {
+    if (rollbackProcess) {
+      await rollbackProcess()
+    }
+  }
+})
+```
+
+#### 可用的回滚辅助函数
+
+**文件操作**:
+- `copyWithRollback(source, target)` - 复制文件
+- `writeWithRollback(filePath, data)` - 写入文件
+- `mkdirWithRollback(dirPath)` - 创建目录
+- `moveWithRollback(source, target)` - 移动文件
+- `copyDirWithRollback(source, target)` - 复制目录
+
+**进程操作**:
+- `spawnWithRollback(command, args, options)` - 启动进程
+- `execWithRollback(command, args, options)` - 执行并等待
+- `waitForProcess(pid, timeout)` - 等待进程退出
+- `killProcesses(pids, timeout)` - 批量终止进程
+
+**配置操作**:
+- `modifyJsonWithRollback(filePath, modifier, options)` - 修改JSON配置
+- `modifyConfigValueWithRollback(filePath, key, value, options)` - 修改单个配置项
+- `modifyConfigValuesWithRollback(filePath, changes, options)` - 批量修改配置
+- `deleteConfigValueWithRollback(filePath, key, options)` - 删除配置项
+
 ## 进度报告
 
 事务系统自动集成进度报告,无需额外配置:
