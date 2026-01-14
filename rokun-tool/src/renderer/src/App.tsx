@@ -23,7 +23,7 @@ import {
   ToastDescription
 } from './components/ui/Toast'
 import { CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import type { PluginPermission } from '@shared/types/plugin'
 import type { FeaturePermissionRequest } from './components/permissions/FeaturePermissionDialog'
 import type { Execution } from './components/ui/GlobalExecutionIndicator'

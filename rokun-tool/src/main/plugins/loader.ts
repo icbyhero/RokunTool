@@ -632,7 +632,7 @@ export class PluginLoader {
             const logger = new TransactionLogger()
 
             // 创建执行器
-            const executor = new TransactionExecutor(logger, progressReporter)
+            const executor = new TransactionExecutor(logger, progressReporter, this.mainWindow || undefined)
 
             // 执行事务
             return executor.execute(transaction)

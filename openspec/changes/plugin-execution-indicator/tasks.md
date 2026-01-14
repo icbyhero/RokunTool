@@ -106,15 +106,15 @@
 
 **文件**: `src/main/transactions/transaction-executor.ts`
 
-- [ ] 2.2.1 在 execute() 开始时发送事件
+- [x] 2.2.1 在 execute() 开始时发送事件
   - 发送 `transaction:start` 事件
   - 包含事务 ID 和名称
 
-- [ ] 2.2.2 在 execute() 结束时发送事件
+- [x] 2.2.2 在 execute() 结束时发送事件
   - 发送 `transaction:end` 事件
   - 包含执行结果
 
-- [ ] 2.2.3 集成到进度报告
+- [x] 2.2.3 集成到进度报告
   - 事务和全局指示器同步
   - 避免重复显示
 

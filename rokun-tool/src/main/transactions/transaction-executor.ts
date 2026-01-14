@@ -4,6 +4,8 @@
  * 支持原子性执行多个操作步骤,失败时自动回滚
  */
 
+import { BrowserWindow } from 'electron'
+
 export interface TransactionStep {
   /** 步骤名称 */
   name: string
@@ -96,10 +98,16 @@ export interface ProgressReporter {
 export class TransactionExecutor {
   private logger?: TransactionLogger
   private progressReporter?: ProgressReporter
+  private mainWindow?: BrowserWindow
 
-  constructor(logger?: TransactionLogger, progressReporter?: ProgressReporter) {
+  constructor(
+    logger?: TransactionLogger,
+    progressReporter?: ProgressReporter,
+    mainWindow?: BrowserWindow
+  ) {
     this.logger = logger
     this.progressReporter = progressReporter
+    this.mainWindow = mainWindow
   }
 
   /**
@@ -130,6 +138,14 @@ export class TransactionExecutor {
     if (this.progressReporter) {
       this.progressReporter.start(name, steps.length)
     }
+
+    // 发送事务开始事件到渲染进程
+    this.mainWindow?.webContents.send('transaction:start', {
+      transactionId: id,
+      transactionName: name,
+      pluginId: pluginId,
+      timestamp: Date.now()
+    })
 
     const result: TransactionResult = {
       transactionId: id,
@@ -201,6 +217,15 @@ export class TransactionExecutor {
           }
 
           result.error = lastError.message
+
+          // 发送事务结束事件到渲染进程
+          this.mainWindow?.webContents.send('transaction:end', {
+            transactionId: id,
+            timestamp: Date.now(),
+            success: false,
+            error: lastError.message
+          })
+
           return result
         }
       }
@@ -218,6 +243,13 @@ export class TransactionExecutor {
         this.progressReporter.complete('success')
       }
 
+      // 发送事务结束事件到渲染进程
+      this.mainWindow?.webContents.send('transaction:end', {
+        transactionId: id,
+        timestamp: Date.now(),
+        success: true
+      })
+
       return result
     } catch (error) {
       // 捕获未预期的错误
@@ -231,6 +263,14 @@ export class TransactionExecutor {
       if (this.progressReporter) {
         this.progressReporter.complete('error', lastError.message)
       }
+
+      // 发送事务结束事件到渲染进程
+      this.mainWindow?.webContents.send('transaction:end', {
+        transactionId: id,
+        timestamp: Date.now(),
+        success: false,
+        error: lastError.message
+      })
 
       return result
     }
