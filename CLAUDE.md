@@ -155,41 +155,71 @@ When creating UI-related proposals:
 - Check `openspec/changes/comprehensive-ui-polish/` for ongoing UI improvements
 - Ensure all new UI work follows the established patterns
 
-# Development Standards
+# Development Documentation References
 
-## Plugin Development
+**⚠️ CRITICAL: Before making any changes, read the relevant documentation:**
 
-**⚠️ MANDATORY: All plugin development MUST follow:**
-- **[Plugin Development Standards](docs/development/PLUGIN-STANDARDS.md)**
+## Quick Decision Tree
 
-Key requirements:
-- ✅ Use `requestFeaturePermissions()` for ALL permission requests
-- ✅ Request permissions BEFORE starting progress reports
+```
+What are you working on?
+├─ Plugin Development?
+│  └─> [Plugin Development Standards](docs/development/standards/plugin-development.md) - MANDATORY
+│
+├─ Main App Development?
+│  ├─ UI Changes?
+│  │  └─> [UI Design System](docs/UI-DESIGN-SYSTEM.md) - MANDATORY
+│  └─ Backend/Architecture?
+│     └─> [Coding Standards](docs/development/standards/coding-style.md)
+│
+├─ Need Permission API?
+│  └─> [Permission API Reference](docs/development/api/permissions.md)
+│
+├─ Need Transaction API?
+│  └─> [Transaction API Reference](docs/development/api/transactions.md)
+│
+└─ Creating Proposal?
+   └─> [OpenSpec AGENTS.md](openspec/AGENTS.md)
+```
+
+## Key Documentation
+
+### For All Development
+- **[Documentation Index](docs/README.md)** - Start here
+- **[Developer Guide](docs/development/README.md)** - Developer quick start
+- **[Standards Overview](docs/development/standards/overview.md)** - All standards summary
+
+### For Plugin Development
+- **[Plugin Development Standards](docs/development/standards/plugin-development.md)** ⚠️ MANDATORY
+- **[Permission API](docs/development/api/permissions.md)** - Permission requests
+- **[Transaction API](docs/development/api/transactions.md)** - Transaction execution
+- **[Plugin System Architecture](docs/development/architecture/plugin-system.md)** - Architecture
+
+### For Main App Development
+- **[Coding Standards](docs/development/standards/coding-style.md)** - Code style
+- **[UI Design System](docs/UI-DESIGN-SYSTEM.md)** - UI patterns
+- **[Main App Architecture](docs/development/architecture/main-app.md)** - Architecture
+
+### For UI Work
+- **[UI Design System](docs/UI-DESIGN-SYSTEM.md)** - Complete UI guide
+
+## Quick Reference
+
+### Plugin Development Checklist
+- ✅ Use `requestFeaturePermissions()` API
+- ✅ Request permissions BEFORE `progress.start()`
 - ✅ Provide clear feature names and descriptions
-- ❌ NEVER use the deprecated `permission.request()` API
+- ❌ NEVER use deprecated `permission.request()` API
 
-## Main App Development
+### UI Development Checklist
+- ✅ All text has `dark:` variants
+- ✅ No hardcoded colors
+- ✅ Tested in both light and dark themes
+- ✅ WCAG AA accessibility
 
-When working on the main Electron app (`rokun-tool/`):
-- Follow the UI Design Guidelines above
-- Maintain type safety (TypeScript strict mode)
-- Test in both light and dark themes
-- Ensure accessibility (WCAG AA minimum)
-- Write meaningful commit messages
-
-## Code Style
-
-- **TypeScript**: Use strict mode, proper types
-- **React**: Follow hooks rules, use functional components
-- **CSS**: Use Tailwind utility classes
-- **Comments**: Add JSDoc for public APIs
-- **Naming**: Use descriptive variable/function names
-
-## Project References
-
-Key documentation:
-- **[Plugin Standards](docs/development/PLUGIN-STANDARDS.md)** - Plugin development rules
-- **[Permission System](docs/PERMISSION-SYSTEM.md)** - Permission APIs and usage
-- **[Transaction System](docs/TRANSACTION-SYSTEM.md)** - Transaction execution engine
-- **[UI Design System](docs/UI-DESIGN-SYSTEM.md)** - UI components and patterns
+### Code Quality Checklist
+- ✅ TypeScript strict mode
+- ✅ No `any` types
+- ✅ Proper error handling
+- ✅ JSDoc comments for public APIs
 
