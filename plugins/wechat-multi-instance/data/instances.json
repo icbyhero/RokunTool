@@ -10,6 +10,16 @@
       "createdAt": "2026-01-13T22:10:24.003Z",
       "wechatVersion": "4.1.6",
       "rebuiltAt": "2026-01-14T08:57:57.761Z"
+    },
+    {
+      "id": "instance-1768386975014",
+      "name": "WeChat4",
+      "path": "/Applications/WeChat4.app",
+      "realPath": "/Users/rokun/Applications/WeChat4.app",
+      "bundleId": "com.tencent.xinWeChat4",
+      "createdAt": "2026-01-14T10:36:15.015Z",
+      "wechatVersion": "4.1.6",
+      "rebuiltAt": null
     }
   ]
 }
