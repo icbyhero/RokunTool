@@ -8,6 +8,7 @@
 - [权限状态](#权限状态)
 - [单个权限请求](#单个权限请求)
 - [批量权限请求](#批量权限请求)
+- [增强权限请求](#增强权限请求)
 - [权限检查](#权限检查)
 - [权限被拒处理](#权限被拒处理)
 - [最佳实践](#最佳实践)
@@ -23,6 +24,8 @@ RokunTool 的权限系统允许插件请求敏感权限(如文件访问、进程
 - ✅ **永久拒绝**: 用户可以永久拒绝某个权限
 - ✅ **批量权限请求**: 一次性请求多个权限
 - ✅ **权限被拒通知**: 用户永久拒绝权限时,会显示提示通知
+- ✅ **增强权限检查**: 支持风险评估和智能推荐策略
+- ✅ **功能级权限请求**: 一次请求功能所需的所有权限,带风险可视化
 
 ### 权限类型
 
@@ -215,6 +218,325 @@ private getPermissionName(permission: string): string {
       granted: false
     }
   ]
+}
+```
+
+## 增强权限请求
+
+增强权限请求系统在原有批量权限请求的基础上,增加了风险评估、智能推荐和更好的用户体验。
+
+### 新增 API 方法
+
+#### 1. checkPermissionsEnhanced() - 增强版权限检查
+
+这个方法会返回详细的风险评估和推荐策略:
+
+```typescript
+const result = await this.context.permission.checkPermissionsEnhanced([
+  {
+    permission: 'fs:write',
+    required: true,
+    reason: '需要写入配置文件到用户目录'
+  },
+  {
+    permission: 'process:spawn',
+    required: false,
+    reason: '可选: 启动 Rime 部署程序'
+  },
+  {
+    permission: 'clipboard:write',
+    required: false,
+    reason: '可选: 复制配置到剪贴板'
+  }
+])
+
+// 返回结果:
+{
+  canProceed: boolean,  // 是否可以直接执行(无需用户交互)
+  permanentlyDenied: Array<{ permission: string; required: boolean }>,
+  pending: Array<{ permission: string; required: boolean }>,
+  granted: Array<{ permission: string; permanent: boolean }>,
+  riskLevel: 'low' | 'medium' | 'high',  // 风险等级
+  recommendation: 'auto_grant' | 'session_grant' | 'ask_user'  // 推荐策略
+}
+```
+
+**风险评估规则**:
+
+- **高风险**:
+  - 包含 `shell:execute`, `process:exec`, `fs:write` 中的任何一个
+  - 或者包含 2 个及以上中风险权限
+
+- **中风险**:
+  - 包含 `process:spawn`, `network:http`, `clipboard:read`, `config:write` 中的任何一个
+
+- **低风险**:
+  - 其他所有权限(如 `fs:read`, `clipboard:write`, `notification:show` 等)
+
+**推荐策略**:
+
+- `auto_grant`: 所有权限都已授予,可以直接执行
+- `session_grant`: 低风险权限,建议用户本次授权
+- `ask_user`: 中高风险权限,需要用户明确确认
+
+#### 2. requestFeaturePermissions() - 功能级权限请求
+
+这是最推荐的方法,它会自动:
+1. 预检查权限
+2. 显示功能级权限请求对话框(带风险可视化)
+3. 处理用户的授权选择
+4. 返回是否获得授权
+
+```typescript
+// 一次请求,处理所有权限
+const granted = await this.context.permission.requestFeaturePermissions(
+  '安装Rime配置方案',  // 功能名称
+  [
+    {
+      permission: 'fs:write',
+      required: true,
+      reason: '写入配置文件到 ~/Library/Rime/'
+    },
+    {
+      permission: 'process:spawn',
+      required: false,
+      reason: '启动 Rime 部署程序'
+    }
+  ],
+  '此功能将下载并安装 Rime 配置方案',  // 功能描述
+  {
+    operation: '安装配置方案',
+    target: 'preset:朙月拼音'
+  }
+)
+
+if (granted) {
+  // 执行功能
+  await this.installRecipe()
+} else {
+  // 用户拒绝授权
+  this.showMessage('未授予所需权限,操作已取消')
+}
+```
+
+**功能级权限请求对话框包含**:
+- 功能名称和描述
+- 操作上下文信息
+- 风险等级指示器(低/中/高,带颜色标识)
+- 推荐策略说明
+- 所有权限的详细列表(带必需/可选标签)
+- 三个按钮: 拒绝 / 本次授权 / 永久授权
+- 安全提示和详细说明
+
+### 使用场景对比
+
+#### 场景 1: 简单功能 - 使用 requestFeaturePermissions()
+
+```typescript
+async installRecipe(recipeName: string) {
+  // 推荐: 一行代码处理所有权限
+  const granted = await this.context.permission.requestFeaturePermissions(
+    `安装 ${recipeName} 配置方案`,
+    [
+      { permission: 'fs:write', required: true, reason: '写入配置文件' },
+      { permission: 'process:spawn', required: false, reason: '部署 Rime' }
+    ],
+    `将安装 ${recipeName} 到您的 Rime 配置目录`,
+    { operation: '安装配置方案', target: recipeName }
+  )
+
+  if (!granted) {
+    return { success: false, error: '权限不足' }
+  }
+
+  // 执行安装...
+  return await this.performInstall(recipeName)
+}
+```
+
+#### 场景 2: 复杂功能 - 使用 checkPermissionsEnhanced()
+
+```typescript
+async complexFeature() {
+  // 步骤1: 增强预检查
+  const checkResult = await this.context.permission.checkPermissionsEnhanced([
+    { permission: 'fs:write', required: true },
+    { permission: 'process:exec', required: true },
+    { permission: 'network:http', required: false }
+  ])
+
+  // 步骤2: 根据风险等级决定策略
+  if (checkResult.riskLevel === 'high') {
+    // 高风险: 显示额外警告
+    const confirmed = await this.showWarning(
+      '此操作涉及高风险权限(文件写入和进程执行),请确保您信任此插件'
+    )
+    if (!confirmed) {
+      return { success: false, error: '用户取消' }
+    }
+  }
+
+  // 步骤3: 检查是否可以继续
+  if (!checkResult.canProceed) {
+    // 步骤3.1: 检查是否有永久拒绝的必需权限
+    if (checkResult.permanentlyDenied.some(p => p.required)) {
+      return { success: false, error: '必需权限被永久拒绝' }
+    }
+
+    // 步骤3.2: 请求权限
+    const granted = await this.context.permission.requestFeaturePermissions(
+      '执行复杂操作',
+      checkResult.pending.map(p => ({
+        permission: p.permission,
+        required: p.required
+      })),
+      '此操作需要多个权限才能完成',
+      { operation: 'complex-operation' }
+    )
+
+    if (!granted) {
+      return { success: false, error: '权限不足' }
+    }
+  }
+
+  // 步骤4: 执行功能
+  return await this.performComplexOperation()
+}
+```
+
+#### 场景 3: 自定义 UI - 完全手动控制
+
+```typescript
+async customUIFeature() {
+  // 步骤1: 预检查
+  const checkResult = await this.context.permission.checkPermissionsEnhanced([
+    { permission: 'fs:read', required: true },
+    { permission: 'fs:write', required: true }
+  ])
+
+  // 步骤2: 在 UI 中显示权限状态
+  this.ui.showPermissionStatus({
+    riskLevel: checkResult.riskLevel,
+    recommendation: checkResult.recommendation,
+    permissions: checkResult.pending
+  })
+
+  // 步骤3: 等待用户点击"开始"按钮
+  const userConfirmed = await this.waitForUserConfirmation()
+
+  if (!userConfirmed) {
+    return { success: false, error: '用户取消' }
+  }
+
+  // 步骤4: 请求权限
+  const granted = await this.context.permission.requestFeaturePermissions(
+    '自定义功能',
+    checkResult.pending.map(p => ({
+      permission: p.permission,
+      required: p.required
+    }))
+  )
+
+  if (!granted) {
+    return { success: false, error: '权限不足' }
+  }
+
+  // 执行功能...
+  return await this.performOperation()
+}
+```
+
+### API 对比
+
+| API | 适用场景 | 优点 | 缺点 |
+|-----|---------|------|------|
+| `requestPermission()` | 单个权限 | 简单直接 | 多次请求会弹出多个对话框 |
+| `requestPermissions()` | 批量权限 | 一次请求多个权限 | 无风险评估,UI 较简单 |
+| **`requestFeaturePermissions()`** | 功能级请求(推荐) | 自动风险评估,完整 UI | 无 |
+| `checkPermissionsEnhanced()` | 复杂场景 | 提供详细信息,可自定义 | 需要更多代码 |
+
+### 最佳实践示例
+
+#### 示例 1: Rime 插件配置安装
+
+```typescript
+class RimePlugin {
+  async installRecipe(recipe: Recipe) {
+    // 定义功能权限
+    const featurePermissions = [
+      {
+        permission: 'fs:write' as const,
+        required: true,
+        reason: `写入配置文件到 ${recipe.targetPath}`
+      },
+      {
+        permission: 'process:spawn' as const,
+        required: false,
+        reason: '可选: 自动部署 Rime 配置'
+      }
+    ]
+
+    // 使用增强 API
+    const granted = await this.context.permission.requestFeaturePermissions(
+      `安装 ${recipe.name} 配置方案`,
+      featurePermissions,
+      recipe.description,
+      {
+        operation: '安装配置方案',
+        target: recipe.id
+      }
+    )
+
+    if (!granted) {
+      this.showMessage('未授予所需权限,无法继续')
+      return
+    }
+
+    // 执行安装
+    await this.performInstall(recipe)
+  }
+}
+```
+
+#### 示例 2: 微信分身管理
+
+```typescript
+class WeChatPlugin {
+  async createInstance(sourcePath: string, targetPath: string) {
+    // 功能级权限请求
+    const granted = await this.context.permission.requestFeaturePermissions(
+      '创建微信分身',
+      [
+        {
+          permission: 'fs:read',
+          required: true,
+          reason: '读取微信应用文件'
+        },
+        {
+          permission: 'fs:write',
+          required: true,
+          reason: `复制到 ${targetPath}`
+        },
+        {
+          permission: 'process:spawn',
+          required: true,
+          reason: '启动微信分身'
+        }
+      ],
+      '将创建一个独立的微信应用实例,与原版互不干扰',
+      {
+        operation: '创建分身',
+        target: targetPath
+      }
+    )
+
+    if (!granted) {
+      return { success: false, error: '权限不足' }
+    }
+
+    // 执行创建...
+    return await this.createInstanceInternal(sourcePath, targetPath)
+  }
 }
 ```
 
