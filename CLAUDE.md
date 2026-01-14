@@ -154,3 +154,42 @@ When creating UI-related proposals:
 - Reference `specs/ui-theme/spec.md` for theme requirements
 - Check `openspec/changes/comprehensive-ui-polish/` for ongoing UI improvements
 - Ensure all new UI work follows the established patterns
+
+# Development Standards
+
+## Plugin Development
+
+**⚠️ MANDATORY: All plugin development MUST follow:**
+- **[Plugin Development Standards](docs/development/PLUGIN-STANDARDS.md)**
+
+Key requirements:
+- ✅ Use `requestFeaturePermissions()` for ALL permission requests
+- ✅ Request permissions BEFORE starting progress reports
+- ✅ Provide clear feature names and descriptions
+- ❌ NEVER use the deprecated `permission.request()` API
+
+## Main App Development
+
+When working on the main Electron app (`rokun-tool/`):
+- Follow the UI Design Guidelines above
+- Maintain type safety (TypeScript strict mode)
+- Test in both light and dark themes
+- Ensure accessibility (WCAG AA minimum)
+- Write meaningful commit messages
+
+## Code Style
+
+- **TypeScript**: Use strict mode, proper types
+- **React**: Follow hooks rules, use functional components
+- **CSS**: Use Tailwind utility classes
+- **Comments**: Add JSDoc for public APIs
+- **Naming**: Use descriptive variable/function names
+
+## Project References
+
+Key documentation:
+- **[Plugin Standards](docs/development/PLUGIN-STANDARDS.md)** - Plugin development rules
+- **[Permission System](docs/PERMISSION-SYSTEM.md)** - Permission APIs and usage
+- **[Transaction System](docs/TRANSACTION-SYSTEM.md)** - Transaction execution engine
+- **[UI Design System](docs/UI-DESIGN-SYSTEM.md)** - UI components and patterns
+

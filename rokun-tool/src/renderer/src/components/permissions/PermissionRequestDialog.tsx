@@ -133,7 +133,7 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
   return createPortal(
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      style={{ zIndex: 999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+      style={{ zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}
     >
       <Card className="w-full max-w-md animate-in zoom-in-95 duration-200">
         <CardContent className="p-6">

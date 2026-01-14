@@ -44,7 +44,7 @@ export function ProgressDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" zIndex={40}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

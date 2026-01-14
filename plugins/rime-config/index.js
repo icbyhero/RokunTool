@@ -633,22 +633,35 @@ class RimeConfigPlugin {
         }
       }
 
-      // 2. 请求进程执行权限
-      this.context.api.progress.update(3, '请求权限', '请求进程执行权限...')
-      const hasPermission = await this.context.api.permission.request('process:exec', {
-        reason: '安装 Plum 配方需要执行 rime-install 命令',
-        context: {
+      // 2. 完成进度报告(权限请求在进度报告之前)
+      this.context.api.progress.complete('success')
+
+      // 3. 请求进程执行权限(功能级权限请求)
+      const granted = await this.context.api.permission.requestFeaturePermissions(
+        `安装 Rime 配方: ${recipe.name}`,
+        [
+          {
+            permission: 'process:exec',
+            required: true,
+            reason: '执行 rime-install 命令以下载和安装 Plum 配方'
+          }
+        ],
+        `将安装配方"${recipe.name}"(${recipeString}),这可能需要一些时间下载组件。`,
+        {
           operation: '安装配方',
           target: recipe.name
         }
-      })
+      )
 
-      if (!hasPermission) {
-        throw new Error('未授予进程执行权限，无法安装配方')
+      if (!granted) {
+        this.context.ui.showMessage('未授予所需权限,操作已取消', 'warning')
+        this.context.logger.info('用户拒绝了安装配方的权限请求')
+        return { success: false, message: '未授予进程执行权限' }
       }
 
-      // 3. 使用插件系统的进程 API,自动进行权限检查
-      this.context.api.progress.update(4, '安装配方', `正在执行 rime-install ${recipeString}...`)
+      // 4. 重新开始进度报告并执行安装
+      this.context.api.progress.start(`安装配方 - ${recipe.name}`, 2)
+      this.context.api.progress.update(1, '安装配方', `正在执行 rime-install ${recipeString}...`)
       const result = await this.context.api.process.exec(`rime-install ${recipeString}`)
 
       if (result.stderr) {

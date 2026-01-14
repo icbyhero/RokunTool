@@ -251,7 +251,7 @@ export function FeaturePermissionDialog({
   return createPortal(
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      style={{ zIndex: 999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+      style={{ zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}
     >
       <Card className="w-full max-w-3xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-hidden flex flex-col">
         <CardContent className="p-6 flex-1 overflow-auto">

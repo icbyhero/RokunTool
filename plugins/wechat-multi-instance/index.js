@@ -143,36 +143,36 @@ class WeChatMultiInstancePlugin {
 
       this.context.logger.info(`创建分身: ${instanceName}`)
 
-      // 2. 先请求所有需要的权限(在进度报告之前)
-      this.context.ui.showMessage('正在请求创建分身所需的权限...', 'info')
-
-      // 请求文件写入权限
-      const hasWritePermission = await this.context.api.permission.request('fs:write', {
-        reason: '创建微信分身需要复制和修改文件',
-        context: {
-          operation: '复制微信应用',
+      // 2. 使用功能级权限请求 API - 一次性请求所有权限
+      const granted = await this.context.api.permission.requestFeaturePermissions(
+        '创建微信分身',  // 功能名称
+        [
+          {
+            permission: 'fs:write',
+            required: true,
+            reason: '创建微信分身需要复制应用和修改配置文件'
+          },
+          {
+            permission: 'process:exec',
+            required: true,
+            reason: '签名微信分身需要执行 codesign 命令'
+          }
+        ],
+        `将创建名为"${instanceName}"的微信分身,包含独立的数据目录。`,  // 功能描述
+        {
+          operation: '创建微信分身',
           target: instancePath
         }
-      })
+      )
 
-      if (!hasWritePermission) {
-        throw new Error('未授予文件写入权限，无法创建微信分身')
+      // 3. 检查权限是否授予
+      if (!granted) {
+        this.context.ui.showMessage('未授予所需权限,操作已取消', 'warning')
+        this.context.logger.info('用户拒绝了创建分身的权限请求')
+        return null
       }
 
-      // 请求进程执行权限
-      const hasExecPermission = await this.context.api.permission.request('process:exec', {
-        reason: '签名微信分身需要执行系统命令',
-        context: {
-          operation: '签名应用',
-          target: instancePath
-        }
-      })
-
-      if (!hasExecPermission) {
-        throw new Error('未授予进程执行权限，无法签名微信分身')
-      }
-
-      // 3. 所有权限已授予,开始进度报告
+      // 4. 所有权限已授予,开始进度报告
       const totalSteps = 5
       this.context.api.progress.start('创建分身', totalSteps)
 
