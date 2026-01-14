@@ -313,6 +313,30 @@ this.context.api.progress.complete('success')
 - 补充: 进度报告系统
 - 不冲突: 现有的 ProgressDialog 继续使用
 
+### 与现有系统的集成
+
+#### 事务系统集成
+- ✅ 监听 `transaction:start` 和 `transaction:end` 事件
+- ✅ 如果事务正在使用 ProgressDialog,则不显示全局指示器
+- ✅ 两者互斥,避免重复显示进度
+
+#### 进度报告系统集成
+- ✅ 插件调用 `progress.start()` 时,显示 ProgressDialog
+- ✅ 如果插件没有调用进度 API,则显示全局指示器
+- ✅ 优先级: ProgressDialog > 全局指示器
+
+#### 集成策略
+```typescript
+// 判断逻辑
+if (pluginCalledProgressAPI) {
+  // 显示 ProgressDialog (详细进度)
+  showProgressDialog()
+} else if (pluginExecuting) {
+  // 显示全局指示器 (轻量指示)
+  showGlobalIndicator()
+}
+```
+
 ## Spec Deltas
 
 此变更不修改任何现有规格文件。
@@ -323,11 +347,47 @@ this.context.api.progress.complete('success')
 - 不修改权限或事务系统的逻辑
 - 只是添加了一个新的视觉反馈组件
 
-**影响的组件**:
-- 新增: `src/renderer/src/components/ui/GlobalExecutionIndicator.tsx`
-- 修改: `src/renderer/src/App.tsx` (集成新组件)
-- 修改: `src/preload/ipc.ts` (添加自动事件发送)
-- 修改: `src/main/transactions/transaction-executor.ts` (添加事务事件)
+### 需要修改的实现文件
+
+#### Renderer 层
+1. **新增**: `src/renderer/src/components/ui/GlobalExecutionIndicator.tsx`
+   - 全局执行指示器组件
+   - 执行项列表组件
+   - 超时通知组件
+
+2. **修改**: `src/renderer/src/App.tsx`
+   - 集成全局指示器
+   - 管理执行状态列表
+   - 监听插件执行事件
+
+3. **修改**: `src/renderer/src/types/electron.ts`
+   - 添加新事件类型定义
+   - `PluginMethodStartEvent`
+   - `PluginMethodEndEvent`
+   - `TransactionStartEvent`
+   - `TransactionEndEvent`
+
+#### Preload 层
+4. **修改**: `src/preload/ipc.ts`
+   - 包装 `plugin.callMethod` API
+   - 自动发送 `plugin:method:start` 事件
+   - 自动发送 `plugin:method:end` 事件
+
+#### Main 层
+5. **修改**: `src/main/ipc/handlers.ts`
+   - 在 `plugin:callMethod` handler 中添加事件发送
+   - 处理权限对话框场景
+
+6. **修改**: `src/main/transactions/transaction-executor.ts`
+   - 在 `execute()` 开始时发送 `transaction:start` 事件 (可能已实现)
+   - 在 `execute()` 结束时发送 `transaction:end` 事件 (可能已实现)
+
+### 不需要修改的部分
+
+- ✅ 权限系统:完全独立,无修改
+- ✅ 事务系统:仅监听事件,不修改核心逻辑
+- ✅ 插件系统:API 保持不变,向后兼容
+- ✅ 进度报告:继续使用现有 API
 
 这些修改都是实现细节,不改变系统的功能规格。
 
@@ -335,21 +395,69 @@ this.context.api.progress.complete('success')
 
 ### 风险 1: 指示器卡住不消失
 
-**缓解措施**:
-- 添加超时机制 (30秒)
-- 提供手动关闭按钮
-- 监听多个结束事件
+**缓解措施**(改进版):
+1. ✅ **超时机制**: 30秒后自动隐藏
+2. ✅ **手动关闭**: 点击指示器可关闭
+3. ✅ **多事件监听**: 同时监听 `end` 事件和窗口焦点变化
+4. ✅ **健康检查**: 每5秒检查插件进程是否存活
+
+**实现细节**:
+```typescript
+// 健康检查
+setInterval(async () => {
+  for (const execution of activeExecutions) {
+    const isAlive = await checkPluginProcess(execution.pluginId)
+    if (!isAlive) {
+      removeExecution(execution.id)
+      showNotification(`${execution.pluginName} 无响应`)
+    }
+  }
+}, 5000)
+```
 
 ### 风险 2: 多个插件同时执行时混乱
 
 **缓解措施**:
-- 显示执行列表 (最多3个)
-- 使用折叠/展开动画
-- 显示执行时间
+1. ✅ **执行项排序规则** (详见 design.md)
+   - 当前页面的插件:置顶
+   - 执行时间最长:排在前面
+   - 最近启动:排在前面
+
+2. ✅ **限制显示数量**
+   - 桌面端:最多显示3个
+   - 移动端:最多显示2个
+   - 超出:显示"还有N个插件在执行..."
+
+3. ✅ **使用折叠/展开动画**
+   - 平滑的进入/退出动画
+   - 虚拟化列表 (如果超过5个)
 
 ### 风险 3: 性能影响
 
+**缓解措施**(改进版):
+1. ✅ **使用 React.memo 包装组件**
+   ```typescript
+   export default React.memo(GlobalExecutionIndicator, (prev, next) => {
+     return prev.executions.length === next.executions.length
+   })
+   ```
+
+2. ✅ **限制更新频率**: 最多每秒更新1次执行时间
+   ```typescript
+   const [lastUpdateTime, setLastUpdateTime] = useState(0)
+   const shouldUpdate = Date.now() - lastUpdateTime > 1000
+   ```
+
+3. ✅ **虚拟化列表**: 如果执行项超过5个,显示"还有N个..."
+4. ✅ **性能监控**: 添加性能指标记录
+   - 显示时长
+   - 更新次数
+   - 内存使用
+
+### 风险 4: 与现有系统冲突
+
 **缓解措施**:
-- 使用轻量级组件
-- 避免频繁的 DOM 更新
-- 使用 React.memo 优化
+1. ✅ **优先级明确**: ProgressDialog > 全局指示器
+2. ✅ **事件隔离**: 使用独立的事件命名空间
+3. ✅ **向后兼容**: 不影响现有插件代码
+4. ✅ **降级方案**: 如果指示器加载失败,不影响主功能

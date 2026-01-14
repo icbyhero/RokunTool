@@ -91,6 +91,36 @@ Plugin calls context.api.transaction.execute()
 [Renderer] Hides GlobalExecutionIndicator
 ```
 
+### 事件发送责任
+
+#### Preload 层
+- **职责**: 包装 `plugin.callMethod` 的直接调用
+- **发送事件**:
+  - `plugin:method:start` - 方法调用开始
+  - `plugin:method:end` - 方法调用结束
+- **实现位置**: `src/preload/ipc.ts`
+
+#### Main 层 (事务执行器)
+- **职责**: 发送事务生命周期事件
+- **发送事件**:
+  - `transaction:start` - 事务开始执行
+  - `transaction:end` - 事务执行完成
+- **实现位置**: `src/main/transactions/transaction-executor.ts`
+- **状态**: ✅ 可能已实现,需验证
+
+#### Main 层 (IPC Handlers)
+- **职责**: 处理权限对话框场景
+- **发送事件**:
+  - `permission:request:start` - 权限请求开始
+  - `permission:request:end` - 权限请求结束
+- **实现位置**: `src/main/ipc/handlers.ts`
+
+#### 优先级规则
+1. **如果插件正在使用 ProgressDialog**: 不显示全局指示器
+2. **如果是事务执行**: 优先使用事务事件
+3. **如果是直接方法调用**: 使用方法事件
+4. **事件冲突**:ProgressDialog 优先级 > 全局指示器
+
 ## Component Design
 
 ### GlobalExecutionIndicator
@@ -126,6 +156,55 @@ interface GlobalExecutionIndicatorProps {
 - 当 `executions.length === 0` 时隐藏
 - 每秒更新执行时间
 - 超时后自动移除并通知
+- 支持多插件同时执行 (最多显示3个)
+
+**执行项排序规则**:
+```typescript
+function sortExecutions(executions: Execution[], currentPluginId?: string): Execution[] {
+  return executions.sort((a, b) => {
+    // 1. 当前页面的插件置顶
+    if (currentPluginId) {
+      if (a.pluginId === currentPluginId && b.pluginId !== currentPluginId) {
+        return -1
+      }
+      if (b.pluginId === currentPluginId && a.pluginId !== currentPluginId) {
+        return 1
+      }
+    }
+
+    // 2. 执行时间最长的排在前面
+    const durationA = Date.now() - a.startTime
+    const durationB = Date.now() - b.startTime
+    if (Math.abs(durationA - durationB) > 5000) {
+      return durationB - durationA
+    }
+
+    // 3. 最近启动的排在前面
+    return b.startTime - a.startTime
+  })
+}
+```
+
+**显示数量限制**:
+- 桌面端:最多显示3个
+- 移动端:最多显示2个
+- 超出限制:显示"还有N个插件在执行..."
+
+```typescript
+function getVisibleExecutions(executions: Execution[], isMobile: boolean) {
+  const maxVisible = isMobile ? 2 : 3
+  const sorted = sortExecutions(executions)
+
+  if (sorted.length <= maxVisible) {
+    return { visible: sorted, hidden: [] }
+  }
+
+  return {
+    visible: sorted.slice(0, maxVisible),
+    hidden: sorted.slice(maxVisible)
+  }
+}
+```
 
 ### ExecutionItem
 
@@ -315,11 +394,26 @@ interface GlobalExecutionIndicatorProps {
 - Position: 顶部中心
 - Width: 90%
 - Font Size: 更小 (text-xs)
+- Max items: 最多显示2个执行项
 
 **Desktop (≥ 768px)**:
 - Position: 右上角
 - Width: auto (min 200px, max 400px)
 - Font Size: 正常 (text-sm)
+- Max items: 最多显示3个执行项
+
+### UI 示例: 多个插件执行
+
+```
+┌────────────────────────────────────┐
+│  🔴 正在执行...                     │
+│  └─ Rime 配置 (8.5s)              │  ← 当前页面,置顶
+│  └─ 微信分身 (3.2s)               │
+│  └─ 还有 1 个插件在执行...          │  ← 折叠显示
+└────────────────────────────────────┘
+```
+
+点击"还有N个插件在执行..."可展开查看全部。
 
 ## Error Handling
 
