@@ -339,7 +339,45 @@ const pluginApi: PluginApi = {
   enable: (request) => ipcRenderer.invoke('plugin:enable', request),
   disable: (request) => ipcRenderer.invoke('plugin:disable', request),
   unload: (request) => ipcRenderer.invoke('plugin:unload', request),
-  callMethod: (request) => ipcRenderer.invoke('plugin:callMethod', request),
+
+  // 包装 callMethod 以自动发送执行事件
+  callMethod: async <T = any>(request: PluginCallMethodRequest): Promise<PluginCallMethodResponse<T>> => {
+    const timestamp = Date.now()
+
+    // 发送方法开始事件
+    ipcRenderer.send('plugin:method:start', {
+      pluginId: request.pluginId,
+      methodName: request.method,
+      timestamp
+    })
+
+    try {
+      // 调用原始方法
+      const result = await ipcRenderer.invoke('plugin:callMethod', request)
+
+      // 发送方法结束事件 (成功)
+      ipcRenderer.send('plugin:method:end', {
+        pluginId: request.pluginId,
+        methodName: request.method,
+        timestamp,
+        success: true
+      })
+
+      return result
+    } catch (error) {
+      // 发送方法结束事件 (失败)
+      ipcRenderer.send('plugin:method:end', {
+        pluginId: request.pluginId,
+        methodName: request.method,
+        timestamp,
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      })
+
+      throw error
+    }
+  },
+
   onStatusChanged: (callback) => ipcRenderer.on('plugin:status-changed', (_, event) => callback(_, event)),
   onLoaded: (callback) => ipcRenderer.on('plugin:loaded', (_, event) => callback(_, event)),
   onLoading: (callback) => ipcRenderer.on('plugin:loading', (_, event) => callback(_, event)),
