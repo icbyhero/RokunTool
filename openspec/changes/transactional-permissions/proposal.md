@@ -1,5 +1,41 @@
 # Proposal: 事务性权限管理系统
 
+## Why
+
+插件系统当前存在严重的用户体验和系统一致性问题:
+
+1. **权限申请时机不当** - 插件在执行过程中逐个申请权限,导致部分操作执行后才被拒绝
+2. **数据一致性风险** - 失败的操作留下垃圾数据,无法自动清理
+3. **进度报告不统一** - 部分插件(如Rime配置)未使用框架的进度API,用户看不到操作进度
+4. **回滚负担重** - 插件开发者需要手动实现回滚逻辑,容易遗漏或出错
+
+这些问题导致:
+- 用户困惑:不知道为什么功能失败,也不知道留下了什么垃圾数据
+- 开发负担:每个插件都要重复实现相同的错误处理和清理逻辑
+- 维护困难:手动回滚逻辑容易出错,难以测试
+
+## What Changes
+
+本变更将分三个阶段实现事务性权限管理系统:
+
+**Phase 1: 权限预检查 (P0)**
+- 扩展 `checkPermissions()` API,支持权限分组和风险评估
+- 创建 `FeaturePermissionDialog` 组件,一次性显示所有所需权限
+- 添加 `preCheckPermissions()` 和 `requestFeaturePermissions()` 方法到插件上下文
+- 更新文档,提供使用示例
+
+**Phase 2: 事务执行引擎 (P1)**
+- 实现 `TransactionExecutor` 类,支持多步骤原子操作
+- 集成统一进度报告 API
+- 实现事务日志记录系统
+- 扩展插件上下文,添加 `executeTransaction()` 和 `TransactionBuilder`
+
+**Phase 3: 回滚策略库 (P2)**
+- 创建常用操作的回滚辅助类 (FileRollback, ProcessRollback, ConfigRollback)
+- 提供回滚最佳实践文档
+- 更新现有插件使用新 API
+- **特别修复: 更新 Rime 配置插件使用进度报告**
+
 ## Change Metadata
 - **ID**: `transactional-permissions`
 - **Title**: 事务性权限管理与原子操作
@@ -806,4 +842,28 @@ async createInstance() {
 ## Related Changes
 
 - 依赖: `permanent-deny-and-batch-permissions` (永久拒绝和批量权限)
+- 集成: `plugin-operation-progress` (统一进度报告)
 - 补充: 权限系统基础增强
+
+## Current Issues Identified
+
+### 问题1: 进度报告方式不统一
+
+**现状**:
+- ✅ **微信分身插件**: 正确使用 `context.api.progress.start()`, `update()`, `complete()`
+- ❌ **Rime 配置插件**: 未使用进度报告 API,用户无法看到安装进度
+
+**问题**:
+用户在使用 Rime 配置插件安装配方时,需要等待较长时间(下载+安装),但没有进度提示,用户体验不佳。
+
+**解决方案**:
+作为本变更的一部分,我们将:
+1. 要求所有插件使用统一的 `context.api.progress` API
+2. 在规范中明确要求进度报告的使用
+3. 更新 Rime 插件以使用进度报告
+4. 提供进度报告最佳实践文档
+
+**实施**:
+- 在 Phase 2.2 中集成进度报告到事务执行引擎
+- 在 MODIFIED requirements 中添加统一进度报告要求
+- 在 tasks.md 中添加"更新 Rime 插件使用进度报告"任务
