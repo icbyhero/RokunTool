@@ -360,29 +360,27 @@ export function WeChatMultiInstance() {
                           </span>
                         )}
                       </CardTitle>
-                      <CardDescription>
-                        <div className="space-y-1">
-                          <div className="text-gray-700 dark:text-gray-300">创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}</div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900 dark:text-white">分身版本:</span>
-                            <span className={needsUpdate ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
-                              {versionLabel}
-                            </span>
-                            {weChatVersion && (
-                              <>
-                                <span className="text-gray-400 dark:text-gray-600">|</span>
-                                <span className="font-medium text-gray-900 dark:text-white">微信版本:</span>
-                                <span className="text-gray-700 dark:text-gray-300">{weChatVersion}</span>
-                              </>
-                            )}
-                          </div>
-                          {instance.rebuiltAt && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              更新于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
-                            </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-700 dark:text-gray-300">创建于 {new Date(instance.createdAt).toLocaleString('zh-CN')}</div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-gray-900 dark:text-white">分身版本:</span>
+                          <span className={needsUpdate ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
+                            {versionLabel}
+                          </span>
+                          {weChatVersion && (
+                            <>
+                              <span className="text-gray-400 dark:text-gray-600">|</span>
+                              <span className="font-medium text-gray-900 dark:text-white">微信版本:</span>
+                              <span className="text-gray-700 dark:text-gray-300">{weChatVersion}</span>
+                            </>
                           )}
                         </div>
-                      </CardDescription>
+                        {instance.rebuiltAt && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            更新于 {new Date(instance.rebuiltAt).toLocaleString('zh-CN')}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
