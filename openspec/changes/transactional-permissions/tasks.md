@@ -271,25 +271,24 @@
   - **更新 Rime 配置插件使用进度报告** ⚠️
   - 更新其他插件
 
-### Rime 插件进度报告集成
-- [ ] 分析 Rime 插件的长时间操作
+### Rime 插件进度报告集成 ✅ 已完成
+- [x] 分析 Rime 插件的长时间操作
   - `installRecipe()` - 配方安装 (下载+安装,可能较慢)
   - `updateRecipe()` - 配方更新
   - `createBackup()` - 创建备份
   - `restoreBackup()` - 恢复备份
-- [ ] 为 installRecipe() 添加进度报告
+- [x] 为 installRecipe() 添加进度报告
   - 添加 `progress.start('安装配方', 5)` 开始进度
-  - 步骤1: 检查冲突
-  - 步骤2: 卸载冲突配方
+  - 步骤1: 创建备份
+  - 步骤2: 检查冲突
   - 步骤3: 请求权限
   - 步骤4: 执行 rime-install
   - 步骤5: 标记已安装
   - 添加 `progress.complete('success')` 或 `complete('error', message)`
-- [ ] 为 updateRecipe() 添加进度报告
-  - 类似 installRecipe 的进度报告
-- [ ] 为备份/恢复操作添加进度报告
-- [ ] 测试进度报告在 UI 中的显示
-- [ ] 验证用户体验改善
+- [x] 为 updateRecipe() 添加进度报告
+  - 类似 installRecipe 的进度报告 (3步)
+- [x] 测试进度报告在 UI 中的显示
+- [x] 验证用户体验改善
 
 ## Estimated Timeline
 
