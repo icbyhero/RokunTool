@@ -91,6 +91,45 @@ export interface BatchPermissionResponse {
 }
 
 /**
+ * 增强的权限检查结果 (支持分组和风险评估)
+ */
+export interface EnhancedPermissionCheckResult {
+  canProceed: boolean
+  permanentlyDenied: Array<{
+    permission: Permission
+    required: boolean
+  }>
+  pending: Array<{
+    permission: Permission
+    required: boolean
+  }>
+  granted: Array<{
+    permission: Permission
+    permanent: boolean
+  }>
+  riskLevel: 'low' | 'medium' | 'high'
+  recommendation: 'auto_grant' | 'session_grant' | 'ask_user'
+}
+
+/**
+ * 功能权限定义
+ */
+export interface FeaturePermission {
+  permission: Permission
+  required: boolean
+  reason?: string
+}
+
+/**
+ * 批量权限请求响应
+ */
+export interface BatchPermissionResponse {
+  requestId: string
+  granted: boolean
+  sessionOnly?: boolean  // 是否仅会话级授权
+}
+
+/**
  * 权限历史记录
  */
 export interface PermissionHistoryEntry {

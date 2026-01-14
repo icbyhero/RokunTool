@@ -589,8 +589,12 @@ class RimeConfigPlugin {
 
     this.context.logger.info(`安装配方: ${recipe.name} (${recipeString})`)
 
+    // 开始进度报告
+    this.context.api.progress.start(`安装配方 - ${recipe.name}`, 5)
+
     try {
       // 0. 安装前自动备份
+      this.context.api.progress.update(1, '创建备份', '正在创建安装前备份...')
       try {
         await this.createBackup(`安装前备份 - ${recipe.name}`, false)
         this.context.logger.info('安装前备份创建成功')
@@ -600,6 +604,7 @@ class RimeConfigPlugin {
       }
 
       // 1. 检测文件冲突(查找会生成相同文件的已安装配方)
+      this.context.api.progress.update(2, '检查冲突', '正在检测文件冲突...')
       const conflictCheck = await this.checkFileConflicts(recipe.id)
 
       if (conflictCheck.hasConflict) {
@@ -629,6 +634,7 @@ class RimeConfigPlugin {
       }
 
       // 2. 请求进程执行权限
+      this.context.api.progress.update(3, '请求权限', '请求进程执行权限...')
       const hasPermission = await this.context.api.permission.request('process:exec', {
         reason: '安装 Plum 配方需要执行 rime-install 命令',
         context: {
@@ -642,6 +648,7 @@ class RimeConfigPlugin {
       }
 
       // 3. 使用插件系统的进程 API,自动进行权限检查
+      this.context.api.progress.update(4, '安装配方', `正在执行 rime-install ${recipeString}...`)
       const result = await this.context.api.process.exec(`rime-install ${recipeString}`)
 
       if (result.stderr) {
@@ -649,12 +656,16 @@ class RimeConfigPlugin {
       }
 
       // 4. 创建配方安装标记文件
+      this.context.api.progress.update(5, '完成安装', '正在创建配方安装标记...')
       await this.markRecipeInstalled(recipe.id)
 
       this.context.logger.info(`配方安装成功: ${recipe.name}`)
 
       // 5. 重新检查安装状态
       await this.checkInstalledRecipes()
+
+      // 完成进度报告
+      this.context.api.progress.complete('success')
 
       return {
         success: true,
@@ -664,6 +675,8 @@ class RimeConfigPlugin {
       }
     } catch (error) {
       this.context.logger.error('配方安装失败:', error)
+      // 失败时也更新进度
+      this.context.api.progress.complete('error', error.message)
       throw error
     }
   }
@@ -692,8 +705,12 @@ class RimeConfigPlugin {
 
     this.context.logger.info(`更新配方: ${recipe.name} (${recipeString})`)
 
+    // 开始进度报告
+    this.context.api.progress.start(`更新配方 - ${recipe.name}`, 3)
+
     try {
       // 请求进程执行权限
+      this.context.api.progress.update(1, '请求权限', '请求进程执行权限...')
       const hasPermission = await this.context.api.permission.request('process:exec', {
         reason: '更新 Plum 配方需要执行 rime-install 命令',
         context: {
@@ -707,6 +724,7 @@ class RimeConfigPlugin {
       }
 
       // 更新配方和安装配方使用相同的命令
+      this.context.api.progress.update(2, '更新配方', `正在执行 rime-install ${recipeString}...`)
       const result = await this.context.api.process.exec(`rime-install ${recipeString}`)
 
       if (result.stderr) {
@@ -716,7 +734,11 @@ class RimeConfigPlugin {
       this.context.logger.info(`配方更新成功: ${recipe.name}`)
 
       // 重新检查安装状态
+      this.context.api.progress.update(3, '检查状态', '正在检查安装状态...')
       await this.checkInstalledRecipes()
+
+      // 完成进度报告
+      this.context.api.progress.complete('success')
 
       return {
         success: true,
@@ -725,6 +747,8 @@ class RimeConfigPlugin {
       }
     } catch (error) {
       this.context.logger.error('配方更新失败:', error)
+      // 失败时也更新进度
+      this.context.api.progress.complete('error', error.message)
       throw error
     }
   }
