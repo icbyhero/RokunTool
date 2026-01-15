@@ -8,6 +8,7 @@
 
 ### 1. 环境准备
 
+- **[环境配置](guides/environment-config.md)** - 🔴 **必读!** 统一的环境配置系统
 - **[环境检查](guides/environment-check.md)** - 确保您的开发环境配置正确
 - **[GitHub 设置](guides/github-setup.md)** - 配置 Git 和 GitHub
 
