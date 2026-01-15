@@ -4,12 +4,11 @@
  * 支持创建和管理多个微信实例
  */
 
-const { readFile, writeFile, access, mkdir, readdir, stat } = require('fs/promises')
-const { join, basename, dirname } = require('path')
+// No direct requires allowed - all accessed through context.api
 
 const WECHAT_PATH = '/Applications/WeChat.app'
 // 实际分身文件存储在用户目录下
-const INSTANCES_DIR = join(process.env.HOME, 'Applications')
+let INSTANCES_DIR = '' // Will be initialized in onLoad
 // 在 /Applications 创建符号链接
 const SYSTEM_APPS_DIR = '/Applications'
 const CONFIG_FILE = 'instances.json'
@@ -22,11 +21,13 @@ class WeChatMultiInstancePlugin {
   constructor(context) {
     this.context = context
     this.instances = new Map()
-    this.configPath = join(context.dataDir, CONFIG_FILE)
+    this.configPath = context.api.path.join(context.dataDir, CONFIG_FILE)
   }
 
   async onLoad(context) {
     this.context = context
+    // Initialize INSTANCES_DIR with context.env.HOME
+    INSTANCES_DIR = context.api.path.join(context.env.HOME, 'Applications')
     context.logger.info('微信分身插件加载中...')
 
     await this.loadConfig()
@@ -51,7 +52,8 @@ class WeChatMultiInstancePlugin {
 
   async loadConfig() {
     try {
-      const data = await readFile(this.configPath, 'utf-8')
+      const buffer = await this.context.api.fs.readFile(this.configPath)
+      const data = buffer.toString('utf-8')
       const config = JSON.parse(data)
 
       for (const instance of config.instances || []) {
@@ -87,13 +89,16 @@ class WeChatMultiInstancePlugin {
     }
 
     try {
-      // 确保目录存在
-      const { dirname } = require('path')
-      const { mkdir } = require('fs/promises')
+      // 确保目录存在 - 通过写入一个临时文件来创建目录
+      const dirPath = this.context.api.path.dirname(this.configPath)
+      try {
+        await this.context.api.fs.stat(dirPath)
+      } catch (e) {
+        // 目录不存在,创建它
+        await this.context.api.fs.writeFile(`${dirPath}/.gitkeep`, '')
+      }
 
-      await mkdir(dirname(this.configPath), { recursive: true })
-
-      await writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
+      await this.context.api.fs.writeFile(this.configPath, JSON.stringify(config, null, 2))
       this.context.logger.info('配置已保存')
     } catch (error) {
       this.context.logger.error('保存配置失败:', error)
@@ -103,7 +108,7 @@ class WeChatMultiInstancePlugin {
 
   async checkWeChatInstalled() {
     try {
-      await access(WECHAT_PATH)
+      await this.context.api.fs.stat(WECHAT_PATH)
       return true
     } catch (error) {
       return false
@@ -133,8 +138,8 @@ class WeChatMultiInstancePlugin {
 
       const instanceNumber = this.getNextInstanceNumber()
       const instanceName = `WeChat${instanceNumber}`
-      const instancePath = join(INSTANCES_DIR, `${instanceName}.app`)
-      const symlinkPath = join(SYSTEM_APPS_DIR, `${instanceName}.app`)
+      const instancePath = this.context.api.path.join(INSTANCES_DIR, `${instanceName}.app`)
+      const symlinkPath = this.context.api.path.join(SYSTEM_APPS_DIR, `${instanceName}.app`)
       const bundleId = `com.tencent.xinWeChat${instanceNumber}`
 
       this.context.logger.info(`创建分身: ${instanceName}`)
@@ -254,9 +259,10 @@ class WeChatMultiInstancePlugin {
   async modifyBundleId(appPath, bundleId, appName) {
     this.context.logger.info(`修改 Bundle ID: ${bundleId}`)
 
-    const plistPath = join(appPath, 'Contents/Info.plist')
+    const plistPath = this.context.api.path.join(appPath, 'Contents/Info.plist')
 
-    let content = await readFile(plistPath, 'utf-8')
+    const buffer = await this.context.api.fs.readFile(plistPath)
+    let content = buffer.toString('utf-8')
 
     content = content.replace(
       /<key>CFBundleIdentifier<\/key>\s*<string>.*?<\/string>/,
@@ -286,14 +292,15 @@ class WeChatMultiInstancePlugin {
       )
     }
 
-    await writeFile(plistPath, content, 'utf-8')
+    await this.context.api.fs.writeFile(plistPath, content)
   }
 
   async modifyWeChatDisplayName(appPath, instanceNumber) {
     this.context.logger.info(`修改微信显示名称: 微信${instanceNumber}`)
 
-    const plistPath = join(appPath, 'Contents/Info.plist')
-    let content = await readFile(plistPath, 'utf-8')
+    const plistPath = this.context.api.path.join(appPath, 'Contents/Info.plist')
+    const buffer = await this.context.api.fs.readFile(plistPath)
+    let content = buffer.toString('utf-8')
 
     // 修改显示名称为中文名+数字
     const chineseName = `微信${instanceNumber}`
@@ -309,12 +316,13 @@ class WeChatMultiInstancePlugin {
       `<key>CFBundleName</key>\n\t<string>${chineseName}</string>`
     )
 
-    await writeFile(plistPath, content, 'utf-8')
+    await this.context.api.fs.writeFile(plistPath, content)
 
     // 也修改 zh_CN.lproj 中的本地化字符串
-    const stringsPath = join(appPath, 'Contents/Resources/zh_CN.lproj/InfoPlist.strings')
+    const stringsPath = this.context.api.path.join(appPath, 'Contents/Resources/zh_CN.lproj/InfoPlist.strings')
     try {
-      let stringsContent = await readFile(stringsPath, 'utf-8')
+      const stringsBuffer = await this.context.api.fs.readFile(stringsPath)
+      let stringsContent = stringsBuffer.toString('utf-8')
 
       // 修改 CFBundleDisplayName 和 CFBundleName 的本地化字符串
       stringsContent = stringsContent.replace(
@@ -327,7 +335,7 @@ class WeChatMultiInstancePlugin {
         `CFBundleName = "${chineseName}";`
       )
 
-      await writeFile(stringsPath, stringsContent, 'utf-8')
+      await this.context.api.fs.writeFile(stringsPath, stringsContent)
       this.context.logger.info('本地化字符串已更新')
     } catch (error) {
       // 本地化文件可能不存在,记录警告但不中断流程
@@ -410,7 +418,7 @@ class WeChatMultiInstancePlugin {
       // 1. 删除符号链接(如果存在)
       if (instance.path !== instance.realPath) {
         try {
-          await access(instance.path)
+          await this.context.api.fs.stat(instance.path)
           await this.context.api.process.exec(`rm -f "${instance.path}"`)
           this.context.logger.info(`符号链接已删除: ${instance.path}`)
         } catch (error) {
@@ -420,7 +428,7 @@ class WeChatMultiInstancePlugin {
 
       // 2. 删除实际文件
       try {
-        await access(instance.realPath)
+        await this.context.api.fs.stat(instance.realPath)
         await this.context.api.process.exec(`rm -rf "${instance.realPath}"`)
         this.context.logger.info(`实际文件已删除: ${instance.realPath}`)
       } catch (accessError) {
@@ -484,7 +492,7 @@ class WeChatMultiInstancePlugin {
       // 删除符号链接
       if (instance.path !== instance.realPath) {
         try {
-          await access(instance.path)
+          await this.context.api.fs.stat(instance.path)
           await this.context.api.process.exec(`rm -f "${instance.path}"`)
           this.context.logger.info(`旧符号链接已删除: ${instance.path}`)
         } catch (error) {
@@ -494,7 +502,7 @@ class WeChatMultiInstancePlugin {
 
       // 删除实际文件
       try {
-        await access(instance.realPath)
+        await this.context.api.fs.stat(instance.realPath)
         await this.context.api.process.exec(`rm -rf "${instance.realPath}"`)
         this.context.logger.info(`旧实际文件已删除: ${instance.realPath}`)
       } catch (error) {
@@ -518,8 +526,8 @@ class WeChatMultiInstancePlugin {
       // 6. 创建新分身(使用相同的实例编号)
       const instanceNumber = parseInt(instance.name.replace('WeChat', ''))
       const instanceName = instance.name
-      const instancePath = join(INSTANCES_DIR, `${instanceName}.app`)
-      const symlinkPath = join(SYSTEM_APPS_DIR, `${instanceName}.app`)
+      const instancePath = this.context.api.path.join(INSTANCES_DIR, `${instanceName}.app`)
+      const symlinkPath = this.context.api.path.join(SYSTEM_APPS_DIR, `${instanceName}.app`)
       const bundleId = instance.bundleId
 
       this.context.logger.info(`创建新分身: ${instanceName}`)
@@ -578,11 +586,14 @@ class WeChatMultiInstancePlugin {
   /**
    * 检查指定的应用路径是否是微信分身
    * 其他插件可以通过此方法识别由本插件创建的分身
+   *
+   * 注意: 这是一个静态方法,但需要 context 参数来访问 API
    */
-  static async isWeChatInstance(appPath) {
+  static async isWeChatInstance(appPath, context) {
     try {
-      const plistPath = join(appPath, 'Contents/Info.plist')
-      const content = await readFile(plistPath, 'utf-8')
+      const plistPath = context.api.path.join(appPath, 'Contents/Info.plist')
+      const buffer = await context.api.fs.readFile(plistPath)
+      const content = buffer.toString('utf-8')
 
       // 检查是否包含分身标记
       return content.includes(`<key>${INSTANCE_MARKER}</key>`)
@@ -594,21 +605,23 @@ class WeChatMultiInstancePlugin {
   /**
    * 获取所有微信分身的路径
    * 其他插件可以用此方法扫描系统中的所有分身
+   *
+   * 注意: 这是一个静态方法,但需要 context 参数来访问 API
    */
-  static async scanInstances() {
+  static async scanInstances(context) {
     const instances = []
 
     try {
-      const appsDir = INSTANCES_DIR
-      const files = await readdir(appsDir)
+      const appsDir = context.api.path.join(context.env.HOME, 'Applications')
+      const files = await context.api.fs.readDir(appsDir)
 
       for (const file of files) {
         // 匹配 WeChat*.app 格式
         if (file.startsWith('WeChat') && file.endsWith('.app')) {
-          const appPath = join(appsDir, file)
+          const appPath = context.api.path.join(appsDir, file)
 
           // 检查是否是分身
-          if (await this.isWeChatInstance(appPath)) {
+          if (await this.isWeChatInstance(appPath, context)) {
             instances.push(appPath)
           }
         }
@@ -647,13 +660,13 @@ class WeChatMultiInstancePlugin {
    */
   async autoDiscoverInstances() {
     try {
-      const discoveredInstances = await WeChatMultiInstancePlugin.scanInstances()
+      const discoveredInstances = await WeChatMultiInstancePlugin.scanInstances(this.context)
       this.context.logger.info(`扫描到 ${discoveredInstances.length} 个分身`)
 
       let addedCount = 0
       for (const appPath of discoveredInstances) {
         // 提取实例名称(如 WeChat3)
-        const appName = basename(appPath, '.app')
+        const appName = this.context.api.path.basename(appPath, '.app')
 
         // 检查是否已经在管理中
         const alreadyManaged = Array.from(this.instances.values()).some(
@@ -662,15 +675,16 @@ class WeChatMultiInstancePlugin {
 
         if (!alreadyManaged) {
           // 读取 Info.plist 获取 Bundle ID
-          const plistPath = join(appPath, 'Contents/Info.plist')
-          const content = await readFile(plistPath, 'utf-8')
+          const plistPath = this.context.api.path.join(appPath, 'Contents/Info.plist')
+          const buffer = await this.context.api.fs.readFile(plistPath)
+          const content = buffer.toString('utf-8')
 
           // 提取 Bundle ID
           const bundleIdMatch = content.match(/<key>CFBundleIdentifier<\/key>\s*<string>(.+?)<\/string>/)
           const bundleId = bundleIdMatch ? bundleIdMatch[1] : `com.tencent.xin${appName}`
 
           // 符号链接路径
-          const symlinkPath = join(SYSTEM_APPS_DIR, `${appName}.app`)
+          const symlinkPath = this.context.api.path.join(SYSTEM_APPS_DIR, `${appName}.app`)
 
           // 创建实例对象
           const instance = {
@@ -847,6 +861,7 @@ module.exports = {
     return pluginInstance.rebuildAllInstances()
   },
   // 导出静态工具方法,供其他插件使用
-  isWeChatInstance: WeChatMultiInstancePlugin.isWeChatInstance,
-  scanInstances: WeChatMultiInstancePlugin.scanInstances
+  // 注意: 这些方法现在需要 context 参数
+  isWeChatInstance: (_context, appPath) => WeChatMultiInstancePlugin.isWeChatInstance(appPath, _context),
+  scanInstances: (_context) => WeChatMultiInstancePlugin.scanInstances(_context)
 }

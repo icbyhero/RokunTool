@@ -99,6 +99,21 @@ export interface PluginRoute {
 }
 
 /**
+ * 插件环境变量
+ * 提供给插件的环境变量访问
+ */
+export interface PluginEnv {
+  /** 用户主目录 */
+  HOME: string
+  /** 用户名 */
+  USER?: string
+  /** PATH 环境变量 */
+  PATH?: string
+  /** 其他环境变量 */
+  [key: string]: string | undefined
+}
+
+/**
  * 插件上下文
  * 提供给插件的运行时环境
  */
@@ -108,6 +123,9 @@ export interface PluginContext {
 
   /** 插件数据目录 (用于存储插件数据) */
   dataDir: string
+
+  /** 插件环境变量 */
+  env: PluginEnv
 
   /** 插件日志工具 */
   logger: {
@@ -393,6 +411,67 @@ export interface PluginAPI {
      * ```
      */
     createBuilder(): import('../../main/transactions').TransactionBuilder
+  }
+
+  /** 系统 API */
+  system: {
+    /**
+     * 获取操作系统平台
+     * @returns 平台标识符 ('darwin' | 'linux' | 'win32')
+     */
+    getPlatform(): Promise<'darwin' | 'linux' | 'win32'>
+
+    /**
+     * 获取系统架构
+     * @returns 架构标识符 ('x64' | 'arm64' | 'arm' | 'ia32')
+     */
+    getArch(): Promise<'x64' | 'arm64' | 'arm' | 'ia32'>
+
+    /**
+     * 获取用户主目录
+     * @returns 用户主目录路径
+     */
+    getHomeDir(): Promise<string>
+
+    /**
+     * 获取用户信息
+     * @returns 用户信息对象
+     */
+    getUserInfo(): Promise<{
+      username: string
+      homedir: string
+    }>
+  }
+
+  /** 路径工具 API */
+  path: {
+    /**
+     * 连接路径片段
+     * @param parts 路径片段
+     * @returns 连接后的路径
+     */
+    join(...parts: string[]): string
+
+    /**
+     * 获取路径的 basename
+     * @param path 路径
+     * @returns basename
+     */
+    basename(path: string): string
+
+    /**
+     * 获取路径的 dirname
+     * @param path 路径
+     * @returns dirname
+     */
+    dirname(path: string): string
+
+    /**
+     * 解析为绝对路径
+     * @param parts 路径片段
+     * @returns 绝对路径
+     */
+    resolve(...parts: string[]): string
   }
 }
 

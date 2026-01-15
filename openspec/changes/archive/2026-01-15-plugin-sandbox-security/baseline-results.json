@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-01-15T02:32:33.447Z",
+  "baseline": {
+    "loadTime": {
+      "rokun-rime-config": 1,
+      "rokun-wechat-multi-instance": 0,
+      "test-plugin": 0
+    },
+    "apiLatency": {
+      "fs.readFile": {
+        "avg": 6,
+        "min": 5,
+        "max": 6
+      },
+      "fs.stat": {
+        "avg": 3,
+        "min": 3,
+        "max": 3
+      },
+      "fs.readDir": {
+        "avg": 10,
+        "min": 10,
+        "max": 11
+      },
+      "process.exec": {
+        "avg": 121,
+        "min": 120,
+        "max": 121
+      },
+      "system.getPlatform": {
+        "avg": 0,
+        "min": 0,
+        "max": 0
+      },
+      "system.getHomeDir": {
+        "avg": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "memory": {
+      "before": {
+        "rss": 44,
+        "heapUsed": 5,
+        "external": 1
+      },
+      "after": {
+        "rss": 45,
+        "heapUsed": 5,
+        "external": 2
+      },
+      "delta": {
+        "rss": 1,
+        "heapUsed": 0,
+        "external": 1
+      }
+    }
+  },
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "nodeVersion": "v25.2.1",
+    "cpuCount": 12,
+    "totalMemory": "32768 MB"
+  }
+}

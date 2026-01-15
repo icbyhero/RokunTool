@@ -4,6 +4,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
+import { homedir, platform, arch } from 'os'
 import { BrowserWindow } from 'electron'
 import type {
   PluginInstance,
@@ -17,6 +18,8 @@ import type {
 import { PluginRegistry } from './registry'
 import { ServiceManager } from '../services'
 import { Permission, PermissionManager } from '../permissions'
+import { PluginSandbox } from './sandbox'
+import { PluginValidator } from './validator'
 
 export class PluginLoader {
   private registry: PluginRegistry
@@ -39,6 +42,40 @@ export class PluginLoader {
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
+  }
+
+  /**
+   * 检查是否启用开发模式 (禁用沙箱)
+   * 注意: 此功能将在 Phase 1 沙箱实施后生效
+   */
+  private isDevelopmentMode(): boolean {
+    // 生产构建时强制启用沙箱
+    if (process.env.NODE_ENV === 'production') {
+      return false
+    }
+
+    return process.env.DISABLE_SANDBOX === '1' || process.env.DISABLE_SANDBOX === 'true'
+  }
+
+  /**
+   * 获取沙箱配置
+   * 注意: 此功能将在 Phase 1 沙箱实施后生效
+   */
+  private getSandboxConfig() {
+    const devMode = this.isDevelopmentMode()
+
+    if (devMode) {
+      console.warn('⚠️  沙箱已禁用 (开发模式)')
+      console.warn('⚠️  插件可以直接访问 Node.js API,存在安全风险')
+      console.warn('⚠️  请勿在生产环境使用此模式')
+    }
+
+    return {
+      enabled: !devMode,
+      timeout: devMode ? Infinity : 30000, // 开发模式无超时
+      strict: !devMode, // 开发模式放宽限制
+      verbose: devMode // 开发模式详细日志
+    }
   }
 
   private sendLoadingEvent(pluginId: string, pluginName: string, status: 'loading' | 'loaded' | 'error', progress?: number, error?: string): void {
@@ -151,6 +188,9 @@ export class PluginLoader {
     // 不再自动授予权限,让插件在使用时动态请求
     // await this.serviceManager.permissions.grantPermissions(metadata.id, metadata.permissions)
 
+    // 获取沙箱配置
+    const sandboxConfig = this.getSandboxConfig()
+
     const context = this.createContext(metadata, pluginPath, options)
     const mainPath = join(pluginPath, metadata.main)
     let pluginExports: any = null
@@ -158,21 +198,74 @@ export class PluginLoader {
 
     try {
       console.log(`Loading plugin from: ${mainPath}`)
-      const pluginModule = await import(mainPath)
-      pluginExports = pluginModule.default || pluginModule
 
-      hooks = {
-        onLoad: pluginExports.onLoad,
-        onEnable: pluginExports.onEnable,
-        onDisable: pluginExports.onDisable,
-        onUnload: pluginExports.onUnload
-      }
+      // 获取沙箱配置
+      const sandboxConfig = this.getSandboxConfig()
 
-      console.log(`Plugin hooks:`, Object.keys(hooks).filter(k => hooks[k]))
+      // 开发模式: 使用 ES6 import (沙箱禁用)
+      if (!sandboxConfig.enabled) {
+        console.log(`🔓 开发模式: 使用 ES6 import 加载插件 ${metadata.id}`)
+        const pluginModule = await import(mainPath)
+        pluginExports = pluginModule.default || pluginModule
 
-      if (hooks.onLoad) {
-        console.log(`Calling onLoad hook for ${metadata.id}`)
-        await hooks.onLoad(context)
+        hooks = {
+          onLoad: pluginExports.onLoad,
+          onEnable: pluginExports.onEnable,
+          onDisable: pluginExports.onDisable,
+          onUnload: pluginExports.onUnload
+        }
+
+        console.log(`Plugin hooks:`, Object.keys(hooks).filter(k => hooks[k]))
+
+        if (hooks.onLoad) {
+          console.log(`Calling onLoad hook for ${metadata.id}`)
+          await hooks.onLoad(context)
+        }
+      } else {
+        // 生产模式: 使用沙箱加载
+        console.log(`🔒 生产模式: 使用沙箱加载插件 ${metadata.id}`)
+
+        // 1. 读取插件代码
+        const code = readFileSync(mainPath, 'utf-8')
+
+        // 2. 验证插件代码
+        const validator = new PluginValidator()
+        const validation = validator.validatePluginCode(code, metadata.id)
+
+        if (!validation.valid) {
+          const stats = validator.getViolationStats(validation.violations)
+          throw new Error(
+            `插件代码验证失败: ${metadata.id}\n` +
+            `CRITICAL: ${stats.critical}, HIGH: ${stats.high}\n` +
+            `违规详情:\n${validation.violations.map(v => `  行 ${v.line}: ${v.pattern}`).join('\n')}`
+          )
+        }
+
+        // 3. 创建沙箱并执行插件代码
+        const sandbox = new PluginSandbox(sandboxConfig)
+        const sandboxContext = sandbox.createSandboxContext({
+          metadata,
+          dataDir: join(pluginPath, 'data'),
+          api: context.api,
+          env: context.env
+        })
+
+        pluginExports = sandbox.runInSandbox(code, sandboxContext, sandboxConfig.timeout)
+
+        // 4. 提取钩子
+        hooks = {
+          onLoad: pluginExports.onLoad,
+          onEnable: pluginExports.onEnable,
+          onDisable: pluginExports.onDisable,
+          onUnload: pluginExports.onUnload
+        }
+
+        console.log(`Plugin hooks:`, Object.keys(hooks).filter(k => hooks[k]))
+
+        if (hooks.onLoad) {
+          console.log(`Calling onLoad hook for ${metadata.id}`)
+          await hooks.onLoad(context)
+        }
       }
     } catch (error) {
       console.error('Failed to load plugin module:', error)
@@ -244,6 +337,11 @@ export class PluginLoader {
     return {
       metadata,
       dataDir,
+      env: {
+        HOME: homedir(),
+        USER: process.env.USER || process.env.USERNAME,
+        PATH: process.env.PATH
+      },
       logger: {
         debug: (message: string) => {
           services.logger.debug(metadata.id, message)
@@ -280,8 +378,6 @@ export class PluginLoader {
         process: {
           spawn: async (command: string, args?: string[]) => {
             this.checkPermission(metadata.id, 'process:spawn' as Permission)
-
-            const operationId = `process-${metadata.id}-${Date.now()}`
 
             // 发送进程开始事件
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
@@ -719,6 +815,40 @@ export class PluginLoader {
             // 动态导入事务模块
             const { createTransactionBuilder } = require('../transactions')
             return createTransactionBuilder()
+          }
+        },
+        system: {
+          getPlatform: async () => {
+            return platform() as 'darwin' | 'linux' | 'win32'
+          },
+          getArch: async () => {
+            return arch() as 'x64' | 'arm64' | 'arm' | 'ia32'
+          },
+          getHomeDir: async () => {
+            return homedir()
+          },
+          getUserInfo: async () => {
+            return {
+              username: process.env.USER || process.env.USERNAME || 'unknown',
+              homedir: homedir()
+            }
+          }
+        },
+        path: {
+          join: (...parts: string[]) => {
+            return join(...parts)
+          },
+          basename: (path: string) => {
+            const pathModule = require('path')
+            return pathModule.basename(path)
+          },
+          dirname: (path: string) => {
+            const pathModule = require('path')
+            return pathModule.dirname(path)
+          },
+          resolve: (...parts: string[]) => {
+            const pathModule = require('path')
+            return pathModule.resolve(...parts)
           }
         }
       }

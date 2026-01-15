@@ -5,14 +5,19 @@
  * 集成 Plum(东风破)配方管理功能
  */
 
-const { readFile, access, readdir, stat, mkdir, writeFile, unlink, cp, rm } = require('fs/promises')
-const { join } = require('path')
+// 移除直接的 require() 调用,改用插件 API
+// const { readFile, access, readdir, stat, mkdir, writeFile, unlink, cp, rm } = require('fs/promises')
+// const { join } = require('path')
 
-const RIME_DIRS = [
-  join(process.env.HOME, 'Library', 'Rime'),
-  join(process.env.HOME, '.local', 'share', 'fcitx5', 'rime'),
-  join(process.env.HOME, '.config', 'ibus', 'rime')
+// 使用环境变量占位符,将在 onLoad 时通过 context.env.HOME 替换
+const RIME_DIRS_TEMPLATE = [
+  '~/Library/Rime',
+  '~/.local/share/fcitx5/rime',
+  '~/.config/ibus/rime'
 ]
+
+// Rime 目录将在 onLoad 时初始化
+let RIME_DIRS = []
 
 // 配方分类定义
 const RECIPE_CATEGORIES = {
@@ -275,14 +280,25 @@ class RimeConfigPlugin {
     this.context = context
     context.logger.info('Rime 配置管理插件加载中...')
 
+    // 初始化 RIME_DIRS,将波浪号扩展为实际路径
+    const homeDir = context.env.HOME
+    RIME_DIRS = RIME_DIRS_TEMPLATE.map(dir => dir.replace('~', homeDir))
+
     await this.detectRimeInstallation()
     await this.loadRecipes()
 
     if (this.rimeDir) {
-      this.backupDir = join(this.rimeDir, 'backups')
+      this.backupDir = context.api.path.join(this.rimeDir, 'backups')
       try {
-        await mkdir(this.backupDir, { recursive: true })
-      } catch (error) {}
+        await context.api.fs.writeFile(this.backupDir + '/.gitkeep', '') // 创建目录
+      } catch (error) {
+        // 如果目录已存在,忽略错误
+        try {
+          await context.api.fs.stat(this.backupDir)
+        } catch (e) {
+          // 目录不存在,尝试其他方式创建
+        }
+      }
     }
 
     context.logger.info('Rime 配置管理插件加载完成')
@@ -303,8 +319,7 @@ class RimeConfigPlugin {
   async detectRimeInstallation() {
     for (const dir of RIME_DIRS) {
       try {
-        await access(dir)
-        const stats = await stat(dir)
+        const stats = await this.context.api.fs.stat(dir)
         if (stats.isDirectory()) {
           this.rimeDir = dir
           this.context.logger.info(`检测到 Rime 目录: ${dir}`)
@@ -345,7 +360,7 @@ class RimeConfigPlugin {
    */
   async scanLocalSchemes() {
     try {
-      const files = await readdir(this.rimeDir)
+      const files = await this.context.api.fs.readDir(this.rimeDir)
       const schemaFiles = files.filter(f => f.endsWith('.schema.yaml'))
 
       // 已知的 Plum 配方文件列表(排除这些)
@@ -397,7 +412,7 @@ class RimeConfigPlugin {
 
   async checkInstalledRecipes() {
     // 检查配方是否已安装 (混合检测方案)
-    const files = await readdir(this.rimeDir)
+    const files = await this.context.api.fs.readDir(this.rimeDir)
 
     // 检查每个配方是否已安装
     for (const recipe of this.recipes) {
@@ -413,9 +428,9 @@ class RimeConfigPlugin {
    */
   async isRecipeInstalled(recipeId, files = null) {
     // 方法1: 优先检查标记文件 (最准确)
-    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    const markerFile = this.context.api.path.join(this.rimeDir, `.recipe-${recipeId}.installed`)
     try {
-      await access(markerFile)
+      await this.context.api.fs.stat(markerFile)
       return true
     } catch {
       // 标记文件不存在,尝试方法2
@@ -423,7 +438,7 @@ class RimeConfigPlugin {
 
     // 方法2: 回退到特征文件检测 (兼容手动安装)
     if (!files) {
-      files = await readdir(this.rimeDir)
+      files = await this.context.api.fs.readDir(this.rimeDir)
     }
 
     return this.detectByCharacteristicFiles(recipeId, files)
@@ -515,13 +530,13 @@ class RimeConfigPlugin {
    * @param {string} recipeId - 配方ID
    */
   async markRecipeInstalled(recipeId) {
-    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    const markerFile = this.context.api.path.join(this.rimeDir, `.recipe-${recipeId}.installed`)
     const installData = {
       recipeId: recipeId,
       installedAt: new Date().toISOString(),
       version: '1.0'
     }
-    await writeFile(markerFile, JSON.stringify(installData, null, 2))
+    await this.context.api.fs.writeFile(markerFile, JSON.stringify(installData, null, 2))
     this.context.logger.info(`已创建配方标记: ${recipeId}`)
   }
 
@@ -530,9 +545,9 @@ class RimeConfigPlugin {
    * @param {string} recipeId - 配方ID
    */
   async unmarkRecipeInstalled(recipeId) {
-    const markerFile = join(this.rimeDir, `.recipe-${recipeId}.installed`)
+    const markerFile = this.context.api.path.join(this.rimeDir, `.recipe-${recipeId}.installed`)
     try {
-      await unlink(markerFile)
+      await this.context.api.process.exec(`rm "${markerFile}"`)
       this.context.logger.info(`已移除配方标记: ${recipeId}`)
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -809,7 +824,7 @@ class RimeConfigPlugin {
       }
 
       // Plum 没有专门的卸载命令,需要手动删除相关文件
-      const files = await readdir(this.rimeDir)
+      const files = await this.context.api.fs.readDir(this.rimeDir)
 
       // 根据配方类型删除相关文件
       let filesToDelete = []
@@ -831,7 +846,7 @@ class RimeConfigPlugin {
 
       // 使用插件系统的文件 API 删除文件
       for (const file of filesToDelete) {
-        const filePath = join(this.rimeDir, file)
+        const filePath = this.context.api.path.join(this.rimeDir, file)
         await this.context.api.process.exec(`rm "${filePath}"`)
       }
 
@@ -879,7 +894,7 @@ class RimeConfigPlugin {
     // 检查 Rime 目录
     for (const dir of RIME_DIRS) {
       try {
-        await access(dir)
+        await this.context.api.fs.stat(dir)
         diagnostics.rimeDir = dir
         diagnostics.installed = true
         diagnostics.info.rimeDir = dir
@@ -899,8 +914,8 @@ class RimeConfigPlugin {
 
     // 检查必要文件
     try {
-      const defaultCustomPath = join(diagnostics.rimeDir, 'default.custom.yaml')
-      await access(defaultCustomPath)
+      const defaultCustomPath = this.context.api.path.join(diagnostics.rimeDir, 'default.custom.yaml')
+      await this.context.api.fs.stat(defaultCustomPath)
       diagnostics.info.defaultCustomYaml = '存在'
     } catch (error) {
       diagnostics.warnings.push('default.custom.yaml 不存在,将自动创建')
@@ -975,7 +990,7 @@ class RimeConfigPlugin {
    * 检测 Rime 版本 (跨平台)
    */
   async detectRimeVersion(diagnostics) {
-    const platform = process.platform
+    const platform = await this.context.api.system.getPlatform()
 
     try {
       if (platform === 'darwin') {
@@ -1000,7 +1015,7 @@ class RimeConfigPlugin {
   async getSquirrelVersion(diagnostics) {
     const squirrelPaths = [
       '/Applications/Squirrel.app',
-      join(process.env.HOME, 'Applications/Squirrel.app')
+      this.context.api.path.join(this.context.env.HOME, 'Applications/Squirrel.app')
     ]
 
     for (const squirrelPath of squirrelPaths) {
@@ -1027,8 +1042,9 @@ class RimeConfigPlugin {
     // 方法2: 直接读取 Info.plist 文件
     for (const squirrelPath of squirrelPaths) {
       try {
-        const plistPath = join(squirrelPath, 'Contents/Info.plist')
-        const plistContent = await readFile(plistPath, 'utf8')
+        const plistPath = this.context.api.path.join(squirrelPath, 'Contents/Info.plist')
+        const buffer = await this.context.api.fs.readFile(plistPath)
+        const plistContent = buffer.toString('utf8')
 
         // 解析 XML 格式的 Info.plist
         const versionMatch = plistContent.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/)
@@ -1100,14 +1116,15 @@ class RimeConfigPlugin {
       throw new Error('Rime 未安装')
     }
 
-    const files = await readdir(this.rimeDir)
+    const files = await this.context.api.fs.readDir(this.rimeDir)
     const schemeFiles = files.filter((file) => file.endsWith('.schema.yaml'))
 
     const schemes = []
 
     for (const file of schemeFiles) {
       try {
-        const content = await readFile(join(this.rimeDir, file), 'utf-8')
+        const buffer = await this.context.api.fs.readFile(this.context.api.path.join(this.rimeDir, file))
+        const content = buffer.toString('utf-8')
         const nameMatch = content.match(/^schema_name:\s*(.+)$/m)
         const displayNameMatch = content.match(/^name:\s*(.+)$/m)
 
@@ -1125,7 +1142,8 @@ class RimeConfigPlugin {
     }
 
     try {
-      const defaultContent = await readFile(join(this.rimeDir, 'default.custom.yaml'), 'utf-8')
+      const buffer = await this.context.api.fs.readFile(this.context.api.path.join(this.rimeDir, 'default.custom.yaml'))
+      const defaultContent = buffer.toString('utf-8')
       const activeSchemes = defaultContent.match(/^schema_list:\s*$/m)
 
       if (activeSchemes) {
@@ -1150,11 +1168,12 @@ class RimeConfigPlugin {
       throw new Error('Rime 未安装')
     }
 
-    const defaultCustomPath = join(this.rimeDir, 'default.custom.yaml')
+    const defaultCustomPath = this.context.api.path.join(this.rimeDir, 'default.custom.yaml')
     let content = ''
 
     try {
-      content = await readFile(defaultCustomPath, 'utf-8')
+      const buffer = await this.context.api.fs.readFile(defaultCustomPath)
+      content = buffer.toString('utf-8')
     } catch (error) {
       // 文件不存在,创建新文件
     }
@@ -1209,11 +1228,12 @@ class RimeConfigPlugin {
       throw new Error('Rime 未安装')
     }
 
-    const defaultCustomPath = join(this.rimeDir, 'default.custom.yaml')
+    const defaultCustomPath = this.context.api.path.join(this.rimeDir, 'default.custom.yaml')
     let content = ''
 
     try {
-      content = await readFile(defaultCustomPath, 'utf-8')
+      const buffer = await this.context.api.fs.readFile(defaultCustomPath)
+      content = buffer.toString('utf-8')
     } catch (error) {
       return
     }
@@ -1283,19 +1303,15 @@ class RimeConfigPlugin {
         backupId = `backup-${year}-${month}-${day}-${hour}-${minute}-${second}`
       }
 
-      const backupPath = join(this.backupDir, backupId)
+      const backupPath = this.context.api.path.join(this.backupDir, backupId)
 
-      // 创建备份目录
-      await mkdir(backupPath, { recursive: true })
+      // 创建备份目录 (通过写入 .gitkeep 文件)
+      await this.context.api.fs.writeFile(`${backupPath}/.gitkeep`, '')
 
-      // 复制所有配置文件到备份目录
-      await cp(this.rimeDir, backupPath, {
-        recursive: true,
-        filter: (src) => {
-          // 排除备份目录本身
-          return !src.startsWith(this.backupDir)
-        }
-      })
+      // 复制所有配置文件到备份目录 (使用 rsync)
+      await this.context.api.process.exec(
+        `rsync -a "${this.rimeDir}/" "${backupPath}/" --exclude="backups"`
+      )
 
       // 计算备份大小
       const backupSize = await this.getDirectorySize(backupPath)
@@ -1310,8 +1326,8 @@ class RimeConfigPlugin {
       }
 
       // 写入元数据文件
-      const metadataPath = join(backupPath, 'backup-metadata.json')
-      await writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+      const metadataPath = this.context.api.path.join(backupPath, 'backup-metadata.json')
+      await this.context.api.fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
 
       this.context.logger.info(`备份创建成功: ${backupId} (${description})`)
 
@@ -1338,13 +1354,13 @@ class RimeConfigPlugin {
   async getDirectorySize(dirPath) {
     let totalSize = 0
 
-    async function calculateSize(path) {
-      const stats = await stat(path)
+    const calculateSize = async (path) => {
+      const stats = await this.context.api.fs.stat(path)
 
       if (stats.isDirectory()) {
-        const files = await readdir(path)
+        const files = await this.context.api.fs.readDir(path)
         for (const file of files) {
-          const filePath = join(path, file)
+          const filePath = this.context.api.path.join(path, file)
           // 跳过备份目录本身
           if (!filePath.includes('backups')) {
             await calculateSize(filePath)
@@ -1427,7 +1443,7 @@ class RimeConfigPlugin {
     }
 
     try {
-      const backupDirs = await readdir(this.backupDir)
+      const backupDirs = await this.context.api.fs.readDir(this.backupDir)
       const backups = []
 
       for (const dirName of backupDirs) {
@@ -1435,11 +1451,12 @@ class RimeConfigPlugin {
           continue
         }
 
-        const backupPath = join(this.backupDir, dirName)
-        const metadataPath = join(backupPath, 'backup-metadata.json')
+        const backupPath = this.context.api.path.join(this.backupDir, dirName)
+        const metadataPath = this.context.api.path.join(backupPath, 'backup-metadata.json')
 
         try {
-          const metadataContent = await readFile(metadataPath, 'utf-8')
+          const buffer = await this.context.api.fs.readFile(metadataPath)
+          const metadataContent = buffer.toString('utf-8')
           const metadata = JSON.parse(metadataContent)
           backups.push(metadata)
         } catch (error) {
@@ -1476,11 +1493,12 @@ class RimeConfigPlugin {
       throw new Error('备份目录未初始化')
     }
 
-    const backupPath = join(this.backupDir, backupId)
-    const metadataPath = join(backupPath, 'backup-metadata.json')
+    const backupPath = this.context.api.path.join(this.backupDir, backupId)
+    const metadataPath = this.context.api.path.join(backupPath, 'backup-metadata.json')
 
     try {
-      const metadataContent = await readFile(metadataPath, 'utf-8')
+      const buffer = await this.context.api.fs.readFile(metadataPath)
+      const metadataContent = buffer.toString('utf-8')
       const metadata = JSON.parse(metadataContent)
 
       return {
@@ -1514,27 +1532,27 @@ class RimeConfigPlugin {
         throw new Error('备份不存在')
       }
 
-      const backupPath = join(this.backupDir, backupId)
+      const backupPath = this.context.api.path.join(this.backupDir, backupId)
 
       // 先创建当前配置的备份
       await this.createBackup(`恢复前备份 - 恢复 ${backupId}`, false)
 
       // 删除当前配置文件(保留备份目录)
-      const files = await readdir(this.rimeDir)
+      const files = await this.context.api.fs.readDir(this.rimeDir)
       for (const file of files) {
         if (file !== 'backups') {
-          const filePath = join(this.rimeDir, file)
-          await rm(filePath, { recursive: true, force: true })
+          const filePath = this.context.api.path.join(this.rimeDir, file)
+          await this.context.api.process.exec(`rm -rf "${filePath}"`)
         }
       }
 
       // 从备份目录恢复文件
-      const backupFiles = await readdir(backupPath)
+      const backupFiles = await this.context.api.fs.readDir(backupPath)
       for (const file of backupFiles) {
-        if (file !== 'backup-metadata.json') {
-          const srcPath = join(backupPath, file)
-          const destPath = join(this.rimeDir, file)
-          await cp(srcPath, destPath, { recursive: true })
+        if (file !== 'backup-metadata.json' && file !== '.gitkeep') {
+          const srcPath = this.context.api.path.join(backupPath, file)
+          const destPath = this.context.api.path.join(this.rimeDir, file)
+          await this.context.api.process.exec(`cp -R "${srcPath}" "${destPath}"`)
         }
       }
 
@@ -1564,10 +1582,10 @@ class RimeConfigPlugin {
     }
 
     try {
-      const backupPath = join(this.backupDir, backupId)
+      const backupPath = this.context.api.path.join(this.backupDir, backupId)
 
       // 删除备份目录
-      await rm(backupPath, { recursive: true, force: true })
+      await this.context.api.process.exec(`rm -rf "${backupPath}"`)
 
       this.context.logger.info(`备份已删除: ${backupId}`)
 
@@ -1598,14 +1616,14 @@ class RimeConfigPlugin {
       }
 
       const metadata = backupInfo.data
-      const backupPath = join(this.backupDir, backupId)
-      const metadataPath = join(backupPath, 'backup-metadata.json')
+      const backupPath = this.context.api.path.join(this.backupDir, backupId)
+      const metadataPath = this.context.api.path.join(backupPath, 'backup-metadata.json')
 
       // 切换 isPermanent 标记
       metadata.isPermanent = !metadata.isPermanent
 
       // 更新元数据文件
-      await writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+      await this.context.api.fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
 
       this.context.logger.info(
         `备份 ${backupId} 已${metadata.isPermanent ? '标记为长期' : '取消长期'}保存`

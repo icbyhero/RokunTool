@@ -1,31 +1,311 @@
 # Project Context
 
 ## Purpose
-[Describe your project's purpose and goals]
+
+RokunTool 的目标是创建一个**安全、可靠、易扩展**的跨平台插件式工具应用平台。
+
+### 核心目标
+
+1. **安全性**: 通过沙箱隔离和权限系统,确保插件无法危害用户系统
+2. **可靠性**: 通过事务系统和自动回滚,确保操作失败后系统状态一致
+3. **可扩展性**: 通过插件式架构,让任何人都可以轻松添加新功能
+4. **用户体验**: 通过统一的进度报告和执行指示,提供清晰的操作反馈
+
+### 解决的问题
+
+- **现有工具的局限**: 大多数工具是单体应用,难以扩展
+- **安全性担忧**: 插件可能执行危险操作(删除文件、启动进程等)
+- **数据一致性**: 操作失败后留下垃圾数据,难以清理
+- **用户体验差**: 长时间操作没有进度提示,用户不知道系统在做什么
+
+### 目标用户
+
+- **终端用户**: 需要各种工具功能的普通用户
+- **插件开发者**: 想为平台贡献功能的开发者
+- **主应用开发者**: 想改进平台本身的贡献者
 
 ## Tech Stack
-- [List your primary technologies]
-- [e.g., TypeScript, React, Node.js]
+
+### 核心技术
+
+- **TypeScript**: 主要开发语言,提供类型安全
+- **Electron**: 跨平台桌面应用框架
+- **React**: 渲染进程 UI 框架
+- **Vite**: 快速的构建工具 (通过 electron-vite)
+- **Node.js**: 主进程运行时
+
+### UI 和样式
+
+- **shadcn/ui**: 现代化的 UI 组件库
+- **TailwindCSS**: 实用优先的 CSS 框架
+- **Lucide React**: 图标库
+
+### 状态管理和数据
+
+- **Zustand**: 轻量级状态管理
+- **Immer**: 不可变数据更新
+
+### 开发工具
+
+- **pnpm**: 高效的包管理器
+- **ESLint**: 代码检查
+- **Prettier**: 代码格式化
+- **TypeScript Compiler**: 类型检查
 
 ## Project Conventions
 
 ### Code Style
-[Describe your code style preferences, formatting rules, and naming conventions]
+
+#### TypeScript 规范
+
+- **严格模式**: 必须启用 `strict: true`
+- **无 `any` 类型**: 除非绝对必要并有详细注释
+- **明确的返回类型**: 所有公共 API 必须声明返回类型
+- **命名约定**:
+  - 类和组件: `PascalCase`
+  - 函数和变量: `camelCase`
+  - 常量: `UPPER_SNAKE_CASE`
+  - 私有成员: `_camelCase`
+
+#### React 规范
+
+- **函数式组件**: 优先使用函数式组件 + hooks
+- **TypeScript**: 所有组件必须有 props 接口定义
+- **文件组织**:
+  - 组件文件: `PascalCase.tsx`
+  - hooks 文件: `use*.ts`
+  - 工具函数: `*.ts`
+
+#### UI/UX 规范
+
+- **深色模式强制**: 所有 UI 组件必须支持深色模式
+  - 文本颜色: `text-gray-900 dark:text-white`
+  - 背景颜色: `bg-white dark:bg-gray-900`
+  - 边框颜色: `border-gray-200 dark:border-gray-700`
+- **可访问性**: 必须满足 WCAG AA 标准
+  - 所有交互元素必须有 `aria-label`
+  - 颜色对比度至少 4.5:1
+  - 支持键盘导航
 
 ### Architecture Patterns
-[Document your architectural decisions and patterns]
+
+#### 插件式架构
+
+- **插件系统**: 所有功能通过插件实现
+- **主应用**: 提供插件加载、管理、权限控制
+- **插件沙箱**: 使用 Node.js VM 隔离插件代码
+
+#### 权限系统设计
+
+- **预检查**: 在执行前检查所有需要的权限
+- **批量请求**: 一次性申请多个权限
+- **风险评估**: 显示每个权限的风险等级
+- **永久拒绝**: 检测并提示永久拒绝的权限
+
+#### 事务系统设计
+
+- **原子性**: 多步骤操作要么全部成功,要么全部回滚
+- **自动回滚**: 失败时按相反顺序回滚所有步骤
+- **进度报告**: 实时显示执行和回滚进度
+- **事务日志**: 完整的操作日志记录
+
+#### 安全边界
+
+- **主进程与渲染进程**: 通过 IPC 安全通信
+- **插件与系统**: 通过沙箱隔离
+- **权限检查**: 在主进程强制执行
 
 ### Testing Strategy
-[Explain your testing approach and requirements]
+
+#### 单元测试
+
+- **覆盖率目标**: 核心系统至少 80%
+- **测试框架**: Jest 或 Vitest
+- **Mock**: 使用 ts-mock 或类似库
+
+#### 集成测试
+
+- **插件加载测试**: 测试插件加载和卸载
+- **权限流程测试**: 测试权限请求和检查
+- **事务执行测试**: 测试事务成功和失败场景
+
+#### 手动测试
+
+- **UI 测试**: 测试所有 UI 组件在明暗主题下的显示
+- **插件测试**: 测试所有插件的完整功能
+- **边界情况测试**: 测试错误处理和边界情况
 
 ### Git Workflow
-[Describe your branching strategy and commit conventions]
+
+#### 分支策略
+
+- **main**: 主分支,始终保持稳定可发布状态
+- **feature/*** : 功能分支,从 main 分出
+- **fix/*** : 修复分支,从 main 分出
+- **docs/*** : 文档分支,从 main 分出
+
+#### Commit 规范
+
+使用 Conventional Commits 格式:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**类型 (type)**:
+- `feat`: 新功能
+- `fix`: Bug 修复
+- `docs`: 文档更新
+- `style`: 代码格式(不影响功能)
+- `refactor`: 重构
+- `test`: 测试
+- `chore`: 构建/工具
+
+**示例**:
+```
+feat(permissions): add batch permission request dialog
+
+Implement a new dialog that shows all required permissions at once,
+improving user experience by reducing the number of permission prompts.
+
+Closes #123
+```
+
+#### PR 流程
+
+1. 创建功能分支
+2. 实现功能和测试
+3. 更新文档
+4. 提交 PR,包含:
+   - 清晰的标题和描述
+   - 关联的 Issue
+   - 截图(如适用)
+5. 请求 review
+6. 根据 feedback 修改
+7. 确保所有检查通过
+8. 合并到 main
 
 ## Domain Context
-[Add domain-specific knowledge that AI assistants need to understand]
+
+### 插件系统
+
+RokunTool 的核心是插件系统,所有功能都通过插件实现。
+
+**插件结构**:
+```
+plugin-name/
+├── index.js          # 插件入口
+├── package.json      # 插件元数据
+├── schema.json       # 权限定义(可选)
+└── data/            # 插件数据目录
+```
+
+**插件生命周期**:
+1. `onLoad`: 插件加载时调用
+2. `onEnable`: 插件启用时调用
+3. `onDisable`: 插件禁用时调用
+4. `onUnload`: 插件卸载时调用
+
+### 权限系统
+
+权限系统确保插件只能执行授权的操作。
+
+**权限类型**:
+- **基础权限**: 自动授予(如 `fs:read`, `config:read`)
+- **敏感权限**: 需要用户确认(如 `fs:write`, `process:exec`)
+
+**权限流程**:
+1. 插件定义需要的权限
+2. 系统检查权限状态
+3. 如需要,显示权限请求对话框
+4. 用户授权或拒绝
+5. 插件收到结果
+
+### 沙箱安全
+
+沙箱系统隔离插件代码,防止恶意行为。
+
+**沙箱机制**:
+- **VM 隔离**: 使用 Node.js VM 模块
+- **静态验证**: 加载前检测危险模式
+- **API 限制**: 只能访问提供的 API
+- **超时保护**: 防止无限执行
+
+**危险模式检测**:
+- `require()` 调用
+- `eval()` 调用
+- `new Function()` 调用
+- `process` 对象访问
+- `global` 对象访问
+
+### 事务系统
+
+事务系统确保多步骤操作的原子性。
+
+**事务流程**:
+1. 定义事务步骤
+2. 执行每个步骤
+3. 如果任何步骤失败,按相反顺序回滚
+4. 记录所有操作到日志
+
+**回滚策略**:
+- 文件操作: 删除创建的文件,恢复备份
+- 进程操作: 终止启动的进程
+- 配置操作: 恢复原始配置
 
 ## Important Constraints
-[List any technical, business, or regulatory constraints]
+
+### 安全性约束
+
+- **不绕过沙箱**: 插件不能访问 Node.js 模块
+- **不暴露敏感信息**: 日志不包含用户数据
+- **不执行任意代码**: 禁止 `eval` 和动态导入
+
+### 性能约束
+
+- **启动时间**: 应用启动时间 < 3 秒
+- **插件加载**: 单个插件加载时间 < 1 秒
+- **UI 响应**: UI 操作响应时间 < 100ms
+- **内存使用**: 基础内存占用 < 200MB
+
+### 兼容性约束
+
+- **Electron 版本**: 使用当前最新的 LTS 版本
+- **Node.js 版本**: 与 Electron 捆绑的版本
+- **操作系统**: macOS, Windows, Linux
+
+### 向后兼容性
+
+- **插件 API**: 主版本升级时保持向后兼容
+- **配置格式**: 配置文件格式变化时提供迁移工具
+- **数据格式**: 数据格式变化时提供转换工具
 
 ## External Dependencies
-[Document key external services, APIs, or systems]
+
+### Electron API
+
+- **app**: 应用生命周期
+- **BrowserWindow**: 窗口管理
+- **ipcMain/ipcRenderer**: 进程间通信
+- **dialog**: 系统对话框
+
+### Node.js 模块
+
+- **fs**: 文件系统操作
+- **path**: 路径处理
+- **child_process**: 进程管理
+- **vm**: 沙箱隔离
+
+### 第三方库
+
+- **electron-store**: 持久化配置
+- **electron-dl**: 文件下载
+- **fs-extra**: 增强的文件系统操作
+
+---
+
+**最后更新**: 2026-01-15
