@@ -367,36 +367,39 @@ export class PluginLoader {
           spawn: async (command: string, args?: string[]) => {
             this.checkPermission(metadata.id, 'process:spawn' as Permission)
 
+            // 记录开始时间
+            const startTime = Date.now()
+
             // 发送进程开始事件
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
               this.mainWindow.webContents.send('plugin:method:start', {
                 pluginId: metadata.id,
                 methodName: command,
-                timestamp: Date.now()
+                timestamp: startTime
               })
             }
 
             try {
               const result = await services.process.spawn(command, args)
 
-              // 发送进程结束事件
+              // 发送进程结束事件(使用相同的 startTime)
               if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.webContents.send('plugin:method:end', {
                   pluginId: metadata.id,
                   methodName: command,
-                  timestamp: Date.now(),
+                  timestamp: startTime,
                   success: true
                 })
               }
 
               return result
             } catch (error) {
-              // 发送进程结束事件(失败)
+              // 发送进程结束事件失败(使用相同的 startTime)
               if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.webContents.send('plugin:method:end', {
                   pluginId: metadata.id,
                   methodName: command,
-                  timestamp: Date.now(),
+                  timestamp: startTime,
                   success: false,
                   error: error instanceof Error ? error.message : String(error)
                 })
@@ -411,24 +414,27 @@ export class PluginLoader {
             // 提取命令名称
             const commandName = command.split(' ')[0].split('/').pop() || command
 
+            // 记录开始时间
+            const startTime = Date.now()
+
             // 发送进程开始事件
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
               this.mainWindow.webContents.send('plugin:method:start', {
                 pluginId: metadata.id,
                 methodName: commandName,
-                timestamp: Date.now()
+                timestamp: startTime
               })
             }
 
             try {
               const result = await services.process.exec(command)
 
-              // 发送进程结束事件
+              // 发送进程结束事件(使用相同的 startTime)
               if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.webContents.send('plugin:method:end', {
                   pluginId: metadata.id,
                   methodName: commandName,
-                  timestamp: Date.now(),
+                  timestamp: startTime,
                   success: true
                 })
               }
@@ -438,12 +444,12 @@ export class PluginLoader {
                 stderr: result.stderr || ''
               }
             } catch (error) {
-              // 发送进程结束事件(失败)
+              // 发送进程结束事件失败(使用相同的 startTime)
               if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.webContents.send('plugin:method:end', {
                   pluginId: metadata.id,
                   methodName: commandName,
-                  timestamp: Date.now(),
+                  timestamp: startTime,
                   success: false,
                   error: error instanceof Error ? error.message : String(error)
                 })

@@ -115,25 +115,36 @@ export function PermissionRequestDialog({ request, onResponse, onClose }: Permis
   }, [onClose])
 
   const handleDeny = () => {
+    console.log('[PermissionRequestDialog] 拒绝按钮被点击')
     onResponse(false, false, false)  // 临时拒绝
   }
 
   const handlePermanentDeny = () => {
+    console.log('[PermissionRequestDialog] 永久拒绝按钮被点击')
     onResponse(false, false, true)   // 永久拒绝
   }
 
   const handleSessionOnly = () => {
+    console.log('[PermissionRequestDialog] 本次授权按钮被点击')
     onResponse(true, true, false)     // 本次授权
   }
 
   const handlePermanentGrant = () => {
+    console.log('[PermissionRequestDialog] 永久授权按钮被点击')
     onResponse(true, false, false)    // 永久授权
   }
 
   return createPortal(
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      style={{ zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}
+      style={{ zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+      onClick={(e) => {
+        // 点击背景关闭对话框
+        if (e.target === e.currentTarget) {
+          console.log('[PermissionRequestDialog] 点击背景关闭对话框')
+          onClose()
+        }
+      }}
     >
       <Card className="w-full max-w-md animate-in zoom-in-95 duration-200">
         <CardContent className="p-6">

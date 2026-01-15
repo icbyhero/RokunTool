@@ -220,7 +220,14 @@ function App(): React.JSX.Element {
 
   // 移除执行项
   const removeExecution = useCallback((executionId: string) => {
-    setExecutions(prev => prev.filter(e => e.id !== executionId))
+    console.log('[App] removeExecution 被调用, executionId:', executionId)
+    setExecutions(prev => {
+      console.log('[App] 当前 executions 数量:', prev.length)
+      console.log('[App] 当前 executions IDs:', prev.map(e => e.id))
+      const filtered = prev.filter(e => e.id !== executionId)
+      console.log('[App] 过滤后 executions 数量:', filtered.length)
+      return filtered
+    })
   }, [])
 
   // 处理超时
@@ -278,8 +285,10 @@ function App(): React.JSX.Element {
       error?: string
     }) => {
       console.log('[App] 插件方法执行完成:', data)
+      console.log('[App] 完整的 data 对象:', JSON.stringify(data))
 
       const executionId = `${data.pluginId}-${data.methodName}-${data.timestamp}`
+      console.log('[App] 计算得到的 executionId:', executionId)
       removeExecution(executionId)
     }
 
@@ -335,22 +344,31 @@ function App(): React.JSX.Element {
 
   // 处理单个权限响应
   const handlePermissionResponse = (granted: boolean, sessionOnly?: boolean, permanent?: boolean) => {
-    console.log('发送权限响应:', { granted, sessionOnly, permanent, requestId: permissionRequest?.id })
+    console.log('[App] 发送权限响应:', { granted, sessionOnly, permanent, requestId: permissionRequest?.id })
+    console.log('[App] permissionRequest 存在:', !!permissionRequest)
+    console.log('[App] window.electronAPI.permission.sendResponse 存在:', !!window.electronAPI.permission?.sendResponse)
 
     if (permissionRequest) {
-      // 发送响应到主进程
-      window.electronAPI.permission.sendResponse?.({
+      const responseData = {
         requestId: permissionRequest.id,
         granted,
         sessionOnly,
-        permanent  // 添加 permanent 标志
-      })
+        permanent
+      }
+      console.log('[App] 准备发送响应数据:', responseData)
+
+      // 发送响应到主进程
+      window.electronAPI.permission.sendResponse?.(responseData)
+      console.log('[App] 响应已发送到主进程')
 
       // 更新 store 中的当前请求
       setCurrentPermissionRequest(null)
 
       // 关闭对话框
       setPermissionRequest(null)
+      console.log('[App] 对话框状态已清除')
+    } else {
+      console.warn('[App] permissionRequest 为 null,无法发送响应')
     }
   }
 
