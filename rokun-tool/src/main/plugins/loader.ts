@@ -20,6 +20,7 @@ import { ServiceManager } from '../services'
 import { Permission, PermissionManager } from '../permissions'
 import { PluginSandbox } from './sandbox'
 import { PluginValidator } from './validator'
+import { getSandboxConfig, isDevelopment } from '../config'
 
 export class PluginLoader {
   private registry: PluginRegistry
@@ -45,36 +46,23 @@ export class PluginLoader {
   }
 
   /**
-   * 检查是否启用开发模式 (禁用沙箱)
-   * 注意: 此功能将在 Phase 1 沙箱实施后生效
-   */
-  private isDevelopmentMode(): boolean {
-    // 生产构建时强制启用沙箱
-    if (process.env.NODE_ENV === 'production') {
-      return false
-    }
-
-    return process.env.DISABLE_SANDBOX === '1' || process.env.DISABLE_SANDBOX === 'true'
-  }
-
-  /**
    * 获取沙箱配置
-   * 注意: 此功能将在 Phase 1 沙箱实施后生效
+   * 从统一配置文件读取,支持 .env.development 和 .env.production
    */
   private getSandboxConfig() {
-    const devMode = this.isDevelopmentMode()
+    const config = getSandboxConfig()
 
-    if (devMode) {
+    if (!config.enabled) {
       console.warn('⚠️  沙箱已禁用 (开发模式)')
       console.warn('⚠️  插件可以直接访问 Node.js API,存在安全风险')
       console.warn('⚠️  请勿在生产环境使用此模式')
     }
 
     return {
-      enabled: !devMode,
-      timeout: devMode ? Infinity : 30000, // 开发模式无超时
-      strict: !devMode, // 开发模式放宽限制
-      verbose: devMode // 开发模式详细日志
+      enabled: config.enabled,
+      timeout: config.timeout,
+      strict: config.strict,
+      verbose: isDevelopment() // 开发模式显示详细日志
     }
   }
 
