@@ -112,10 +112,13 @@ graph LR
 
 ```bash
 # 安装依赖
-cd rokun-tool && npm install
+cd rokun-tool && pnpm install
 
-# 启动开发服务器
+# 启动开发服务器(开发模式,沙箱禁用)
 npm run dev
+
+# 启动开发服务器(生产模式,沙箱启用)
+npm run dev:prod
 
 # 类型检查
 npm run typecheck
@@ -126,6 +129,8 @@ npm run build
 # 运行测试
 npm test
 ```
+
+> 💡 **提示**: 详见 [环境配置文档](guides/environment-config.md) 了解开发/生产模式的区别
 
 ### 代码检查
 
