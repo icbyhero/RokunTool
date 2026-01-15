@@ -6,10 +6,6 @@
 
 const { readFile, writeFile, access, mkdir, readdir, stat } = require('fs/promises')
 const { join, basename, dirname } = require('path')
-const { exec } = require('child_process')
-const { promisify } = require('util')
-
-const execAsync = promisify(exec)
 
 const WECHAT_PATH = '/Applications/WeChat.app'
 // 实际分身文件存储在用户目录下
@@ -116,7 +112,7 @@ class WeChatMultiInstancePlugin {
 
   async getWeChatVersion() {
     try {
-      const { stdout } = await execAsync(
+      const { stdout } = await this.context.api.process.exec(
         `defaults read "${WECHAT_PATH}/Contents/Info.plist" CFBundleShortVersionString`
       )
       return stdout.trim()
@@ -196,9 +192,9 @@ class WeChatMultiInstancePlugin {
       this.context.logger.info(`创建符号链接: ${symlinkPath} -> ${instancePath}`)
       try {
         // 先删除可能存在的旧链接
-        await execAsync(`rm -f "${symlinkPath}"`)
+        await this.context.api.process.exec(`rm -f "${symlinkPath}"`)
         // 创建符号链接
-        await execAsync(`ln -s "${instancePath}" "${symlinkPath}"`)
+        await this.context.api.process.exec(`ln -s "${instancePath}" "${symlinkPath}"`)
         this.context.logger.info(`符号链接创建成功`)
       } catch (linkError) {
         this.context.logger.warn('创建符号链接失败(分身仍可用):', linkError.message)
@@ -248,7 +244,7 @@ class WeChatMultiInstancePlugin {
   async copyWeChatApp(targetPath) {
     this.context.logger.info(`复制微信应用到: ${targetPath}`)
 
-    const { stdout, stderr } = await execAsync(`cp -R "${WECHAT_PATH}" "${targetPath}"`)
+    const { stdout, stderr } = await this.context.api.process.exec(`cp -R "${WECHAT_PATH}" "${targetPath}"`)
 
     if (stderr) {
       this.context.logger.warn('复制警告:', stderr)
@@ -345,7 +341,7 @@ class WeChatMultiInstancePlugin {
     try {
       // 1. 清除扩展属性
       this.context.logger.info('清除扩展属性...')
-      const { stdout: xattrOutput, stderr: xattrError } = await execAsync(`xattr -cr "${appPath}"`)
+      const { stdout: xattrOutput, stderr: xattrError } = await this.context.api.process.exec(`xattr -cr "${appPath}"`)
       if (xattrError) {
         this.context.logger.warn('xattr 警告:', xattrError)
       }
@@ -353,7 +349,7 @@ class WeChatMultiInstancePlugin {
       // 2. 移除根目录的未密封文件
       this.context.logger.info('清理未密封内容...')
       try {
-        await execAsync(`find "${appPath}" -maxdepth 1 -type f -delete`)
+        await this.context.api.process.exec(`find "${appPath}" -maxdepth 1 -type f -delete`)
       } catch (error) {
         this.context.logger.warn('清理未密封文件时出现警告(可忽略):', error.message)
       }
@@ -361,14 +357,14 @@ class WeChatMultiInstancePlugin {
       // 3. 先签名内部组件
       this.context.logger.info('签名内部组件...')
       try {
-        await execAsync(`codesign --force --deep --sign - "${appPath}/Contents"`)
+        await this.context.api.process.exec(`codesign --force --deep --sign - "${appPath}/Contents"`)
       } catch (error) {
         this.context.logger.warn('签名 Contents 警告:', error.message)
       }
 
       // 4. 最后签名整个应用
       this.context.logger.info('应用代码签名...')
-      const { stdout: codesignOutput, stderr: codesignError } = await execAsync(`codesign --force --deep --sign - "${appPath}"`)
+      const { stdout: codesignOutput, stderr: codesignError } = await this.context.api.process.exec(`codesign --force --deep --sign - "${appPath}"`)
 
       if (codesignError && !codesignError.includes('replacing existing signature')) {
         this.context.logger.warn('codesign 警告:', codesignError)
@@ -415,7 +411,7 @@ class WeChatMultiInstancePlugin {
       if (instance.path !== instance.realPath) {
         try {
           await access(instance.path)
-          await execAsync(`rm -f "${instance.path}"`)
+          await this.context.api.process.exec(`rm -f "${instance.path}"`)
           this.context.logger.info(`符号链接已删除: ${instance.path}`)
         } catch (error) {
           this.context.logger.warn('删除符号链接时出现警告:', error.message)
@@ -425,7 +421,7 @@ class WeChatMultiInstancePlugin {
       // 2. 删除实际文件
       try {
         await access(instance.realPath)
-        await execAsync(`rm -rf "${instance.realPath}"`)
+        await this.context.api.process.exec(`rm -rf "${instance.realPath}"`)
         this.context.logger.info(`实际文件已删除: ${instance.realPath}`)
       } catch (accessError) {
         // 文件不存在,直接从配置中删除
@@ -489,7 +485,7 @@ class WeChatMultiInstancePlugin {
       if (instance.path !== instance.realPath) {
         try {
           await access(instance.path)
-          await execAsync(`rm -f "${instance.path}"`)
+          await this.context.api.process.exec(`rm -f "${instance.path}"`)
           this.context.logger.info(`旧符号链接已删除: ${instance.path}`)
         } catch (error) {
           this.context.logger.warn('删除旧符号链接时出现警告:', error.message)
@@ -499,7 +495,7 @@ class WeChatMultiInstancePlugin {
       // 删除实际文件
       try {
         await access(instance.realPath)
-        await execAsync(`rm -rf "${instance.realPath}"`)
+        await this.context.api.process.exec(`rm -rf "${instance.realPath}"`)
         this.context.logger.info(`旧实际文件已删除: ${instance.realPath}`)
       } catch (error) {
         this.context.logger.warn('删除旧实际文件时出现警告:', error.message)
@@ -547,8 +543,8 @@ class WeChatMultiInstancePlugin {
       // 创建符号链接
       this.context.logger.info(`创建符号链接: ${symlinkPath} -> ${instancePath}`)
       try {
-        await execAsync(`rm -f "${symlinkPath}"`)
-        await execAsync(`ln -s "${instancePath}" "${symlinkPath}"`)
+        await this.context.api.process.exec(`rm -f "${symlinkPath}"`)
+        await this.context.api.process.exec(`ln -s "${instancePath}" "${symlinkPath}"`)
         this.context.logger.info(`符号链接创建成功`)
       } catch (linkError) {
         this.context.logger.warn('创建符号链接失败(分身仍可用):', linkError.message)
@@ -627,7 +623,7 @@ class WeChatMultiInstancePlugin {
   async refreshInstancesStatus() {
     for (const [id, instance] of this.instances) {
       try {
-        const { stdout } = await execAsync(`pgrep -f "${instance.name}"`)
+        const { stdout } = await this.context.api.process.exec(`pgrep -f "${instance.name}"`)
         const isRunning = stdout.trim().length > 0
 
         if (instance.running !== isRunning) {
