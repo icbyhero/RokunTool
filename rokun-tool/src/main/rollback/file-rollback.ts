@@ -5,7 +5,7 @@
  */
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs'
-import { join, dirname, basename } from 'path'
+import { join, dirname } from 'path'
 
 /**
  * 复制文件(带回滚)

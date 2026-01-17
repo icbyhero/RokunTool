@@ -176,9 +176,6 @@ export class PluginLoader {
     // 不再自动授予权限,让插件在使用时动态请求
     // await this.serviceManager.permissions.grantPermissions(metadata.id, metadata.permissions)
 
-    // 获取沙箱配置
-    const sandboxConfig = this.getSandboxConfig()
-
     const context = this.createContext(metadata, pluginPath, options)
     const mainPath = join(pluginPath, metadata.main)
     let pluginExports: any = null

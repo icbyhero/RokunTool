@@ -14,7 +14,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { PermissionService, type Permission } from './permission-service'
 import { PermissionStore } from './permission-store'
 import { SessionPermissionManager } from './session-permission-manager'
-import { getGlobalConfig } from '../config'
 
 /**
  * 权限状态

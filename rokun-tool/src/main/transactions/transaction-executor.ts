@@ -280,11 +280,11 @@ export class TransactionExecutor {
    * 回滚已执行的步骤
    */
   private async rollback(
-    transactionId: string,
+    _transactionId: string,
     steps: TransactionStep[],
     failedIndex: number,
     continueOnError: boolean,
-    enableLogging: boolean
+    _enableLogging: boolean
   ): Promise<TransactionResult['rollbackInfo']> {
     const rollbackInfo: TransactionResult['rollbackInfo'] = {
       success: true,

@@ -156,7 +156,7 @@ export function DictionaryEditor({
               Ctrl+S: 保存 | ESC: 取消
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   )

@@ -116,8 +116,10 @@ export abstract class BasePlugin implements PluginHooks {
       name: transaction.name,
       pluginId: this.metadata.id,
       steps: transaction.steps,
-      rollbackOnError: transaction.rollbackOnError ?? true,
-      stopOnFirstError: transaction.stopOnFirstError ?? true
+      options: {
+        autoRollback: transaction.rollbackOnError ?? true,
+        enableLogging: true
+      }
     })
   }
 
@@ -193,7 +195,7 @@ export abstract class BasePlugin implements PluginHooks {
   ): Promise<boolean> {
     return this.context.api.permission.requestFeaturePermissions(
       featureName,
-      permissions,
+      permissions as any,
       featureDescription
     )
   }

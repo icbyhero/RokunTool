@@ -5,7 +5,6 @@
  */
 
 import { spawn } from 'child_process'
-import { existsSync } from 'fs'
 
 export interface SpawnOptions {
   cwd?: string
@@ -84,7 +83,7 @@ export async function spawnWithRollback(
  * @param timeout 超时时间(毫秒)
  */
 async function killProcessWithTimeout(pid: number, timeout: number): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const startTime = Date.now()
     let timeoutHandle: NodeJS.Timeout | null = null
 

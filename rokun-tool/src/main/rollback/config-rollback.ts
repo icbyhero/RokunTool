@@ -159,10 +159,8 @@ export async function modifyConfigValueWithRollback<T = any>(
     (config) => {
       const keys = key.split('.')
       let current: any = config
-      const keyPath = []
 
       for (let i = 0; i < keys.length - 1; i++) {
-        keyPath.push(keys[i])
         if (!(keys[i] in current)) {
           current[keys[i]] = {}
         }
@@ -245,8 +243,8 @@ export async function deleteConfigValueWithRollback<T = any>(
   options: ConfigModifyOptions<T> = {}
 ): Promise<() => Promise<void>> {
   // 先保存原始值
-  let originalValue: any = null
-  let valueExists = false
+  // let originalValue: any = null
+  // let valueExists = false
 
   try {
     const content = readFileSync(filePath, 'utf-8')
@@ -263,8 +261,8 @@ export async function deleteConfigValueWithRollback<T = any>(
 
     const lastKey = keys[keys.length - 1]
     if (lastKey in current) {
-      valueExists = true
-      originalValue = current[lastKey]
+      // valueExists = true
+      // originalValue = current[lastKey]
     }
   } catch (error) {
     // 忽略错误
